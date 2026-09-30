@@ -93,6 +93,21 @@ CREATE TABLE lexical_postings (
   doc_key INTEGER NOT NULL REFERENCES lexical_docs(doc_key), tf INTEGER NOT NULL,
   PRIMARY KEY (term_id, doc_key)) WITHOUT ROWID;
 """,
+    3: """
+-- Dense retrieval. Vectors are keyed by embedder config and chunk, so each immutable chunk is
+-- embedded once per model config and shared by every corpus version that contains it.
+CREATE TABLE dense_vectors (
+  embedder_hash TEXT NOT NULL, chunk_id TEXT NOT NULL REFERENCES chunks(id),
+  vector BLOB NOT NULL, PRIMARY KEY (embedder_hash, chunk_id)) WITHOUT ROWID;
+-- One row per build of (corpus version, embedder); status moves building -> ready | failed.
+CREATE TABLE dense_indexes (
+  id TEXT PRIMARY KEY, corpus_id TEXT NOT NULL REFERENCES corpora(id),
+  version INTEGER NOT NULL, embedder_hash TEXT NOT NULL, status TEXT NOT NULL,
+  started_at TEXT NOT NULL, data TEXT NOT NULL);
+CREATE INDEX dense_indexes_lookup ON dense_indexes (corpus_id, embedder_hash, version);
+CREATE TRIGGER dense_vectors_no_update BEFORE UPDATE ON dense_vectors
+  BEGIN SELECT RAISE(ABORT, 'dense_vectors is append-only'); END;
+""",
 }
 SCHEMA_VERSION = max(MIGRATIONS)
 

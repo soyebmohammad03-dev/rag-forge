@@ -213,8 +213,8 @@ def test_hit_and_provenance_metadata(retrieval: RetrievalService, corpus: Corpus
 
 
 def test_unimplemented_strategy(retrieval: RetrievalService, corpus: Corpus) -> None:
-    with pytest.raises(StrategyNotAvailableError, match="'dense' is not implemented"):
-        ask(retrieval, corpus.id, "vectors", strategy="dense")
+    with pytest.raises(StrategyNotAvailableError, match="'graph' is not implemented"):
+        ask(retrieval, corpus.id, "vectors", strategy="graph")
 
 
 def test_v1_database_migrates_and_backfills_index(tmp_path: Path) -> None:
@@ -224,6 +224,7 @@ def test_v1_database_migrates_and_backfills_index(tmp_path: Path) -> None:
     IngestionService(store, BlobStore(tmp_path / "b")).ingest(c.id, [("a.txt", b"legacy text")])
     db = sqlite3.connect(path)  # rewind to a Phase 1 (schema v1) database
     db.executescript(
+        "DROP TABLE dense_vectors; DROP TABLE dense_indexes;"
         "DROP TABLE lexical_postings; DROP TABLE lexical_docs; DROP TABLE lexical_terms;"
         "PRAGMA user_version=1;"
     )
@@ -231,7 +232,7 @@ def test_v1_database_migrates_and_backfills_index(tmp_path: Path) -> None:
 
     reopened = SqliteStore(path)
     with reopened.transaction() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
     r = ask(make_service(reopened), c.id, "legacy")
     assert files(r) == ["a.txt"]
     assert r.provenance.statistics["indexed_now"] == 1

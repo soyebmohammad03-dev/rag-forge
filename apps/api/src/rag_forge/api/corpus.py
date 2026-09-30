@@ -4,13 +4,25 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.concurrency import run_in_threadpool
 
 from rag_forge.api.schemas import (
     ChunkPage,
     CorpusCreate,
     CorpusSummary,
+    DenseIndexBuild,
+    DenseIndexView,
     DocumentDetail,
     DocumentSummary,
     NotImplementedDetail,
@@ -25,12 +37,15 @@ from rag_forge.domain.models import (
 )
 from rag_forge.ingestion.extraction import EXTRACTORS
 from rag_forge.ingestion.service import DocumentNotInCorpusError, IngestionService
+from rag_forge.retrieval.dense import DenseIndexNotReadyError, DenseIndexService
+from rag_forge.retrieval.embedding import EmbedderUnavailableError
 from rag_forge.retrieval.service import (
     CorpusVersionNotFoundError,
     RetrievalService,
     StrategyNotAvailableError,
 )
 from rag_forge.storage.base import CorpusStore, VersionChange
+from rag_forge.storage.vector_index import IndexIntegrityError
 
 router = APIRouter(prefix="/api/v1", tags=["corpus"])
 
@@ -209,3 +224,77 @@ def retrieve(corpus_id: str, body: RetrievalRequest, request: Request) -> Retrie
     except StrategyNotAvailableError as exc:
         detail = NotImplementedDetail(capability="Retrieval strategy", message=str(exc))
         raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail=detail.model_dump()) from exc
+    except DenseIndexNotReadyError as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail={"state": exc.state, "message": str(exc)}
+        ) from exc
+    except EmbedderUnavailableError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except IndexIntegrityError as exc:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+def _dense(request: Request) -> DenseIndexService:
+    service: DenseIndexService = request.app.state.dense
+    return service
+
+
+def _version(corpus: Corpus, version: int | None) -> int:
+    if version is None:
+        return corpus.version
+    if version > corpus.version:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"corpus has no version {version}")
+    return version
+
+
+def _view(dense: DenseIndexService, corpus: Corpus, version: int) -> DenseIndexView:
+    state, index = dense.state(corpus, version)
+    return DenseIndexView(
+        corpus_id=corpus.id,
+        version=version,
+        state=state,
+        index=index,
+        embedder=dense.embedder.spec,
+        embedder_hash=dense.embedder_hash,
+    )
+
+
+@router.get("/corpora/{corpus_id}/dense-index", response_model=DenseIndexView, tags=["retrieval"])
+def dense_index_status(
+    corpus_id: str,
+    request: Request,
+    version: Annotated[int | None, Query(ge=0, description="Defaults to current")] = None,
+) -> DenseIndexView:
+    corpus = _corpus(request, corpus_id)
+    return _view(_dense(request), corpus, _version(corpus, version))
+
+
+@router.post(
+    "/corpora/{corpus_id}/dense-index",
+    response_model=DenseIndexView,
+    tags=["retrieval"],
+    responses={202: {"model": DenseIndexView, "description": "Build started"}},
+)
+def build_dense_index(
+    corpus_id: str,
+    body: DenseIndexBuild,
+    request: Request,
+    response: Response,
+    background: BackgroundTasks,
+) -> DenseIndexView:
+    """Build the dense index for a corpus version from its stored chunks (no re-ingestion).
+
+    Idempotent: returns the ready or in-progress index if there is one. Otherwise starts a build
+    (202) in the background; poll GET for progress. A failed or stale index is rebuilt.
+    """
+    corpus = _corpus(request, corpus_id)
+    version = _version(corpus, body.version)
+    dense = _dense(request)
+    try:
+        index, needs_build = dense.start(corpus, version)
+    except EmbedderUnavailableError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    if needs_build:
+        response.status_code = status.HTTP_202_ACCEPTED
+        background.add_task(dense.build, index, corpus)
+    return _view(dense, corpus, version)

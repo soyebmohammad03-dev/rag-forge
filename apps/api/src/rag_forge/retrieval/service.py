@@ -98,6 +98,7 @@ class RetrievalService:
             retriever=retriever.name,
             retriever_config=config,
             retriever_config_hash=canonical_hash({"retriever": retriever.name, **config}),
+            index_id=output.index_id,
             query_terms=output.query_terms,
             statistics=output.statistics,
             environment=capture_environment(),

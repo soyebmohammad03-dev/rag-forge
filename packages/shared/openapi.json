@@ -855,6 +855,130 @@
           }
         }
       }
+    },
+    "/api/v1/corpora/{corpus_id}/dense-index": {
+      "get": {
+        "tags": [
+          "corpus",
+          "retrieval"
+        ],
+        "summary": "Dense Index Status",
+        "operationId": "dense_index_status_api_v1_corpora__corpus_id__dense_index_get",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Defaults to current",
+              "title": "Version"
+            },
+            "description": "Defaults to current"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DenseIndexView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "corpus",
+          "retrieval"
+        ],
+        "summary": "Build Dense Index",
+        "description": "Build the dense index for a corpus version from its stored chunks (no re-ingestion).\n\nIdempotent: returns the ready or in-progress index if there is one. Otherwise starts a build\n(202) in the background; poll GET for progress. A failed or stale index is rebuilt.",
+        "operationId": "build_dense_index_api_v1_corpora__corpus_id__dense_index_post",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DenseIndexBuild"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DenseIndexView"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Build started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DenseIndexView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1301,6 +1425,202 @@
         "title": "CorpusVersion",
         "description": "An immutable snapshot: which document versions the corpus contained."
       },
+      "DenseIndex": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "corpus_version": {
+            "type": "integer",
+            "title": "Corpus Version"
+          },
+          "chunking_hash": {
+            "type": "string",
+            "title": "Chunking Hash"
+          },
+          "embedder": {
+            "$ref": "#/components/schemas/EmbedderInfo"
+          },
+          "similarity": {
+            "type": "string",
+            "title": "Similarity",
+            "default": "cosine"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DenseIndexStatus",
+            "default": "building"
+          },
+          "chunk_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Chunk Count",
+            "description": "Chunks in the corpus version"
+          },
+          "embedded": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Embedded",
+            "description": "Progress: chunks with a vector so far",
+            "default": 0
+          },
+          "reused": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Reused",
+            "description": "Vectors reused from earlier builds",
+            "default": 0
+          },
+          "content_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Hash",
+            "description": "SHA-256 over chunk ids and exact vector bytes; set when ready"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "corpus_id",
+          "corpus_version",
+          "chunking_hash",
+          "embedder",
+          "similarity",
+          "status",
+          "chunk_count",
+          "embedded",
+          "reused",
+          "content_hash",
+          "error",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "DenseIndex",
+        "description": "One build of a dense index for a corpus version under one embedder config."
+      },
+      "DenseIndexBuild": {
+        "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version",
+            "description": "Defaults to the current version"
+          }
+        },
+        "type": "object",
+        "title": "DenseIndexBuild"
+      },
+      "DenseIndexState": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "building",
+          "failed",
+          "stale",
+          "missing"
+        ],
+        "title": "DenseIndexState",
+        "description": "What the UI may promise for a corpus version under the configured embedder."
+      },
+      "DenseIndexStatus": {
+        "type": "string",
+        "enum": [
+          "building",
+          "ready",
+          "failed"
+        ],
+        "title": "DenseIndexStatus"
+      },
+      "DenseIndexView": {
+        "properties": {
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "state": {
+            "$ref": "#/components/schemas/DenseIndexState"
+          },
+          "index": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DenseIndex"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Latest build for this version, if any"
+          },
+          "embedder": {
+            "$ref": "#/components/schemas/EmbedderSpec"
+          },
+          "embedder_hash": {
+            "type": "string",
+            "title": "Embedder Hash"
+          }
+        },
+        "type": "object",
+        "required": [
+          "corpus_id",
+          "version",
+          "state",
+          "index",
+          "embedder",
+          "embedder_hash"
+        ],
+        "title": "DenseIndexView",
+        "description": "Whether a corpus version has a usable dense index under the configured embedder."
+      },
       "Document": {
         "properties": {
           "id": {
@@ -1473,6 +1793,107 @@
           "created_at"
         ],
         "title": "DocumentVersion"
+      },
+      "EmbedderInfo": {
+        "properties": {
+          "spec": {
+            "$ref": "#/components/schemas/EmbedderSpec"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash"
+          },
+          "dimension": {
+            "type": "integer",
+            "title": "Dimension"
+          },
+          "pooling": {
+            "type": "string",
+            "title": "Pooling"
+          },
+          "normalize": {
+            "type": "boolean",
+            "title": "Normalize"
+          },
+          "max_seq_length": {
+            "type": "integer",
+            "title": "Max Seq Length"
+          },
+          "weights_sha256": {
+            "type": "string",
+            "title": "Weights Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "spec",
+          "config_hash",
+          "dimension",
+          "pooling",
+          "normalize",
+          "max_seq_length",
+          "weights_sha256"
+        ],
+        "title": "EmbedderInfo",
+        "description": "The spec plus facts read from the loaded model files."
+      },
+      "EmbedderSpec": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "default": "onnx-sentence-transformers"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "BAAI/bge-small-en-v1.5"
+          },
+          "revision": {
+            "type": "string",
+            "title": "Revision",
+            "description": "Pinned model commit",
+            "default": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a"
+          },
+          "query_prefix": {
+            "type": "string",
+            "title": "Query Prefix",
+            "description": "Instruction prepended to queries (not documents), per the model card",
+            "default": "Represent this sentence for searching relevant passages: "
+          },
+          "max_seq_length": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Seq Length",
+            "description": "None = the model's own limit"
+          },
+          "batch_size": {
+            "type": "integer",
+            "maximum": 512.0,
+            "minimum": 1.0,
+            "title": "Batch Size",
+            "default": 32
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "model",
+          "revision",
+          "query_prefix",
+          "max_seq_length",
+          "batch_size"
+        ],
+        "title": "EmbedderSpec",
+        "description": "What determines an embedding. Its hash keys every stored vector."
       },
       "EnvironmentResponse": {
         "properties": {
@@ -2205,6 +2626,18 @@
             "type": "string",
             "title": "Retriever Config Hash"
           },
+          "index_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Id",
+            "description": "Dense index used, if any"
+          },
           "query_terms": {
             "items": {
               "type": "string"
@@ -2243,6 +2676,7 @@
           "retriever",
           "retriever_config",
           "retriever_config_hash",
+          "index_id",
           "query_terms",
           "statistics",
           "environment",

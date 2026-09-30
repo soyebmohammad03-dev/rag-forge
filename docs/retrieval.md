@@ -1,6 +1,10 @@
 # Retrieval
 
-Code: `apps/api/src/rag_forge/retrieval/` and `apps/api/src/rag_forge/storage/lexical_index.py`.
+Code: `apps/api/src/rag_forge/retrieval/`, `apps/api/src/rag_forge/storage/lexical_index.py` and
+`apps/api/src/rag_forge/storage/vector_index.py`.
+
+Two strategies run behind one contract: **`sparse`** (BM25, also accepted as `"bm25"`) and
+**`dense`** (embedding similarity). Both return the same `RetrievalResponse` shape.
 
 ## Flow
 
@@ -9,7 +13,8 @@ POST /api/v1/corpora/{id}/retrieve  { query, top_k, version?, strategy, bm25 }
         │
 RetrievalService
   1. resolve corpus (404) and version (default current; > current → 404)
-  2. pick the retriever registered for `strategy` (unregistered → 501)
+  2. pick the retriever registered for `strategy` (unregistered → 501; dense without a ready
+     index → 409 with the index state; embedding model unavailable → 503)
   3. retriever.retrieve(corpus, version, query, top_k) → ranked chunk ids + scores + statistics
   4. load chunks and document versions; build hits (rank, score, chunk, filename, doc version)
   5. attach provenance (corpus version, chunking hash, retriever config + hash, query terms,
@@ -93,6 +98,105 @@ Responses are not persisted yet; recording retrieval runs belongs to the experim
 lexical tables. Each migration runs in one transaction. Phase 1 databases upgrade in place on
 startup and are indexed on first query (tested).
 
+## Dense retrieval
+
+### Model
+
+`BAAI/bge-small-en-v1.5`, pinned to revision `5c38ec7c405ec4b44b94cc5a9bb96e735b38267a` (MIT).
+384 dimensions, CLS pooling, L2-normalised, 512-token limit, and the model card's query
+instruction (`"Represent this sentence for searching relevant passages: "`) prepended to queries
+only. Chosen because it is among the strongest small retrieval models on BEIR/MTEB, runs on a
+laptop CPU in milliseconds, and ships an official ONNX export.
+
+### Embedding runtime
+
+`OnnxSentenceEmbedder` (`retrieval/embedding.py`) runs any Hugging Face model in the
+sentence-transformers layout that includes `onnx/model.onnx`, using `onnxruntime` + `tokenizers`
+(about 85 MB installed, versus well over 1 GB for PyTorch + sentence-transformers). Pooling and
+normalisation are read from the model's `1_Pooling/config.json` and `modules.json`. Files are
+downloaded at the pinned revision into the Hugging Face cache (`~/.cache/huggingface`), never into
+the repository. Parity with the `sentence-transformers` package was checked on this model: maximum
+absolute difference 1.8e-7 (float32 precision).
+
+The provider is behind an `Embedder` protocol (`spec`, `info()`, `embed_documents`,
+`embed_query`). `$RAG_FORGE_EMBEDDER` (an `EmbedderSpec` as JSON) selects another model without
+code changes. `EmbedderSpec` (provider, model, revision, query prefix, max length, batch size)
+is hashed into `embedder_hash`, which keys every stored vector.
+
+### Vector storage
+
+```
+dense_vectors  (embedder_hash, chunk_id → chunks.id, vector BLOB float32-LE)  PK (embedder_hash, chunk_id)
+dense_indexes  (id, corpus_id, version, embedder_hash, status, started_at, data JSON)
+```
+
+- Vectors are keyed by embedder config and chunk, like the lexical index: each immutable chunk is
+  embedded once per model config and shared by every corpus version that contains it. Building
+  v2 after editing one document re-embeds only that document's chunks (`reused` counts the rest).
+- An index record describes one build of one **(corpus, version, embedder)**: chunk count,
+  progress, reused vectors, embedder info (model, revision, dimension, pooling, weights SHA-256),
+  similarity, timestamps, error, and a `content_hash` = SHA-256 over the embedder hash, the chunk
+  ids and the exact vector bytes. Two indexes with equal content hashes search identical data.
+- Search loads the matrix of exactly that version's chunks (membership join, chunk-id order),
+  checks every vector exists and has the right dimension, and computes cosine similarity as a dot
+  product of unit vectors in float64. Ready indexes are immutable, so matrices are cached by index.
+- The storage class is the replacement point for FAISS, pgvector or an on-disk ANN index.
+
+### Similarity and ordering
+
+Cosine similarity of L2-normalised vectors (range −1…1, in practice 0.3…0.9 for this model).
+Scores are rounded to 6 decimals before ranking and ties are broken by chunk id, so last-bit
+floating-point noise cannot reorder results. Embeddings are bit-identical across calls and
+independent of batch composition (tested).
+
+### Index lifecycle
+
+| State | Meaning | Dense queries |
+|---|---|---|
+| `missing` | No build for this version and embedder, nothing else indexed | 409 |
+| `stale` | Not built for this version, but another version or embedder config is | 409 |
+| `building` | Build in progress; `embedded / chunk_count` shows progress | 409 |
+| `failed` | Latest build failed (error recorded), or the API stopped mid-build | 409 |
+| `ready` | Built and sealed with a content hash | 200 |
+
+`POST /api/v1/corpora/{id}/dense-index {version?}` starts a build in the background (202) from the
+chunks already stored; nothing is re-ingested. It is idempotent: a ready or building index is
+returned as-is (200). A failed or stale state is rebuilt by posting again. On startup, builds left
+`building` by a previous process are marked failed. `GET` on the same path reports the state.
+Dense retrieval never falls back to BM25.
+
+Dense indexes are built explicitly, unlike the lexical index, because embedding costs real
+compute and the UI must not suggest dense retrieval is available before it is.
+
+### Provenance
+
+Dense responses record `index_id`, and `retriever_config` holds model, revision, provider,
+dimension, pooling, normalisation, max length, query prefix, weights SHA-256, embedder hash and
+similarity metric; statistics include `candidate_chunks` and `query_embedding_ms`. With the same
+corpus version, embedder spec and index content hash, ordering is reproducible.
+
+## BM25 vs dense
+
+| | BM25 | Dense |
+|---|---|---|
+| Matches | exact analysed terms | meaning, paraphrase, no shared words needed |
+| Fails on | synonyms, paraphrase, vocabulary mismatch | rare identifiers, exact codes, out-of-domain jargon |
+| Scores | unbounded, query-relative | cosine, bounded, compressed range |
+| Index | lazy, per chunk, free | explicit build, model compute |
+| Explainability | per-term contributions | opaque vector geometry |
+
+The Retrieval Lab's **Compare** mode runs both on the same query, corpus and version and shows
+shared and unique chunks, rank movement, score distributions (on their own scales) and latency.
+It is inspection only; measured quality comparisons belong to the Arena.
+
+## Toward hybrid retrieval
+
+Both retrievers already return ranked candidates for the same corpus version and chunking under
+one contract. A hybrid retriever will call both and fuse the lists (reciprocal rank fusion first,
+since it needs no score calibration between BM25 and cosine), register as
+`RetrievalStrategy.HYBRID`, and report both sub-configs in its provenance. No storage changes are
+needed.
+
 ## Known limits
 
 - No stemming, synonyms, phrase or proximity scoring (baseline by design).
@@ -100,3 +204,9 @@ startup and are indexed on first query (tested).
   research scale, and the obvious place to optimise if corpora grow large.
 - The first query on a large version pays the indexing cost.
 - Scores are only comparable within one query and corpus version.
+- Dense search is exact and loads a version's whole matrix (fine to ~10⁶ chunks); dense indexes
+  build one at a time per process, in the API process.
+- Long chunks are truncated at the model's 512-token limit when embedded.
+- Vectors are computed on CPU; results are reproducible on one machine, and ordering is protected
+  against tiny cross-machine float differences by rounding, but not guaranteed bit-identical
+  across CPU architectures.

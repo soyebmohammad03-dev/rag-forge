@@ -3,7 +3,8 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { highlight } from "./evidence-card";
-import { RetrievalPage, errorMessage } from "./retrieval-page";
+import { errorMessage } from "./errors";
+import { RetrievalPage } from "./retrieval-page";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
@@ -42,11 +43,21 @@ const response = {
   },
 } as unknown as RetrievalResponse;
 
+const denseView = (state: string, index: object | null = null) => ({
+  corpus_id: "cor_1", version: 2, state, index, embedder_hash: "e",
+  embedder: { provider: "onnx-sentence-transformers", model: "BAAI/bge-small-en-v1.5", revision: "5c38ec7c405e", query_prefix: "", max_seq_length: null, batch_size: 32 },
+});
+
+/** Minimal API: corpora, dense-index status, and a canned retrieve response. */
+function route(req: Request, retrieve: RetrievalResponse | Response) {
+  if (req.url.endsWith("/retrieve")) return retrieve instanceof Response ? retrieve : Response.json(retrieve);
+  if (req.url.includes("/dense-index")) return Response.json(denseView("missing"));
+  return Response.json(corpora);
+}
+
 describe("RetrievalPage", () => {
   it("sends a typed request and renders evidence with provenance", async () => {
-    const fetchMock = vi.fn(async (req: Request) =>
-      req.url.endsWith("/retrieve") ? Response.json(response) : Response.json(corpora),
-    );
+    const fetchMock = vi.fn(async (req: Request) => route(req, response));
     vi.stubGlobal("fetch", fetchMock);
     render(<RetrievalPage />);
     const user = userEvent.setup();
@@ -65,9 +76,7 @@ describe("RetrievalPage", () => {
 
   it("shows API errors instead of results", async () => {
     vi.stubGlobal("fetch", vi.fn(async (req: Request) =>
-      req.url.endsWith("/retrieve")
-        ? Response.json({ detail: { capability: "Retrieval strategy", message: "not implemented yet" } }, { status: 501 })
-        : Response.json(corpora),
+      route(req, Response.json({ detail: { capability: "Retrieval strategy", message: "not implemented yet" } }, { status: 501 })),
     ));
     render(<RetrievalPage />);
     await userEvent.setup().type(await screen.findByLabelText("Query"), "x{Enter}");
@@ -85,5 +94,22 @@ describe("helpers", () => {
     expect(errorMessage({ detail: "corpus has no version 9" }, 404)).toBe("corpus has no version 9");
     expect(errorMessage({ detail: [{ msg: "query must not be blank" }] }, 422)).toBe("query must not be blank");
     expect(errorMessage(undefined, 500)).toBe("API responded 500");
+  });
+});
+
+describe("dense gating", () => {
+  it("disables dense retrieval until the version has a ready index", async () => {
+    const fetchMock = vi.fn(async (req: Request) => route(req, response));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<RetrievalPage />);
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText("Query"), "semantic");
+    await user.click(screen.getByLabelText("Dense"));
+    expect(await screen.findByText(/Dense retrieval is unavailable for this version/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Retrieve/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Build dense index" })).toBeInTheDocument();
+    await user.click(screen.getByLabelText("BM25"));
+    expect(screen.getByRole("button", { name: /Retrieve/ })).toBeEnabled();
+    expect(fetchMock.mock.calls.some((c) => (c[0] as Request).url.endsWith("/retrieve"))).toBe(false);
   });
 });

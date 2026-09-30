@@ -289,6 +289,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/corpora/{corpus_id}/dense-index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dense Index Status */
+        get: operations["dense_index_status_api_v1_corpora__corpus_id__dense_index_get"];
+        put?: never;
+        /**
+         * Build Dense Index
+         * @description Build the dense index for a corpus version from its stored chunks (no re-ingestion).
+         *
+         *     Idempotent: returns the ready or in-progress index if there is one. Otherwise starts a build
+         *     (202) in the background; poll GET for progress. A failed or stale index is rebuilt.
+         */
+        post: operations["build_dense_index_api_v1_corpora__corpus_id__dense_index_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -514,6 +538,94 @@ export interface components {
             created_at: string;
         };
         /**
+         * DenseIndex
+         * @description One build of a dense index for a corpus version under one embedder config.
+         */
+        DenseIndex: {
+            /** Id */
+            id: string;
+            /** Corpus Id */
+            corpus_id: string;
+            /** Corpus Version */
+            corpus_version: number;
+            /** Chunking Hash */
+            chunking_hash: string;
+            embedder: components["schemas"]["EmbedderInfo"];
+            /**
+             * Similarity
+             * @default cosine
+             */
+            similarity: string;
+            /** @default building */
+            status: components["schemas"]["DenseIndexStatus"];
+            /**
+             * Chunk Count
+             * @description Chunks in the corpus version
+             */
+            chunk_count: number;
+            /**
+             * Embedded
+             * @description Progress: chunks with a vector so far
+             * @default 0
+             */
+            embedded: number;
+            /**
+             * Reused
+             * @description Vectors reused from earlier builds
+             * @default 0
+             */
+            reused: number;
+            /**
+             * Content Hash
+             * @description SHA-256 over chunk ids and exact vector bytes; set when ready
+             */
+            content_hash: string | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** DenseIndexBuild */
+        DenseIndexBuild: {
+            /**
+             * Version
+             * @description Defaults to the current version
+             */
+            version?: number | null;
+        };
+        /**
+         * DenseIndexState
+         * @description What the UI may promise for a corpus version under the configured embedder.
+         * @enum {string}
+         */
+        DenseIndexState: "ready" | "building" | "failed" | "stale" | "missing";
+        /**
+         * DenseIndexStatus
+         * @enum {string}
+         */
+        DenseIndexStatus: "building" | "ready" | "failed";
+        /**
+         * DenseIndexView
+         * @description Whether a corpus version has a usable dense index under the configured embedder.
+         */
+        DenseIndexView: {
+            /** Corpus Id */
+            corpus_id: string;
+            /** Version */
+            version: number;
+            state: components["schemas"]["DenseIndexState"];
+            /** @description Latest build for this version, if any */
+            index: components["schemas"]["DenseIndex"] | null;
+            embedder: components["schemas"]["EmbedderSpec"];
+            /** Embedder Hash */
+            embedder_hash: string;
+        };
+        /**
          * Document
          * @description A logical document, identified within its corpus by filename. Content lives in versions.
          */
@@ -586,6 +698,63 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * EmbedderInfo
+         * @description The spec plus facts read from the loaded model files.
+         */
+        EmbedderInfo: {
+            spec: components["schemas"]["EmbedderSpec"];
+            /** Config Hash */
+            config_hash: string;
+            /** Dimension */
+            dimension: number;
+            /** Pooling */
+            pooling: string;
+            /** Normalize */
+            normalize: boolean;
+            /** Max Seq Length */
+            max_seq_length: number;
+            /** Weights Sha256 */
+            weights_sha256: string;
+        };
+        /**
+         * EmbedderSpec
+         * @description What determines an embedding. Its hash keys every stored vector.
+         */
+        EmbedderSpec: {
+            /**
+             * Provider
+             * @default onnx-sentence-transformers
+             */
+            provider: string;
+            /**
+             * Model
+             * @default BAAI/bge-small-en-v1.5
+             */
+            model: string;
+            /**
+             * Revision
+             * @description Pinned model commit
+             * @default 5c38ec7c405ec4b44b94cc5a9bb96e735b38267a
+             */
+            revision: string;
+            /**
+             * Query Prefix
+             * @description Instruction prepended to queries (not documents), per the model card
+             * @default Represent this sentence for searching relevant passages:
+             */
+            query_prefix: string;
+            /**
+             * Max Seq Length
+             * @description None = the model's own limit
+             */
+            max_seq_length: number | null;
+            /**
+             * Batch Size
+             * @default 32
+             */
+            batch_size: number;
         };
         /** EnvironmentResponse */
         EnvironmentResponse: {
@@ -853,6 +1022,11 @@ export interface components {
             };
             /** Retriever Config Hash */
             retriever_config_hash: string;
+            /**
+             * Index Id
+             * @description Dense index used, if any
+             */
+            index_id: string | null;
             /** Query Terms */
             query_terms: string[];
             /**
@@ -1595,6 +1769,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotImplementedDetail"];
+                };
+            };
+        };
+    };
+    dense_index_status_api_v1_corpora__corpus_id__dense_index_get: {
+        parameters: {
+            query?: {
+                /** @description Defaults to current */
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                corpus_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DenseIndexView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    build_dense_index_api_v1_corpora__corpus_id__dense_index_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corpus_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DenseIndexBuild"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DenseIndexView"];
+                };
+            };
+            /** @description Build started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DenseIndexView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

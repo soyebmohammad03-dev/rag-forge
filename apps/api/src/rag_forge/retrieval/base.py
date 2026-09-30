@@ -26,6 +26,7 @@ class RetrieverOutput:
     query_terms: list[str]
     statistics: dict[str, float] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    index_id: str | None = None  # the concrete index searched, when the retriever has one
 
 
 class Retriever(Protocol):

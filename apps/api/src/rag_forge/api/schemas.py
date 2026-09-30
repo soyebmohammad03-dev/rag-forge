@@ -12,8 +12,11 @@ from rag_forge.domain.models import (
     Chunk,
     ChunkingConfig,
     Corpus,
+    DenseIndex,
+    DenseIndexState,
     Document,
     DocumentVersion,
+    EmbedderSpec,
     EnvironmentSnapshot,
     Metric,
     Query,
@@ -80,6 +83,21 @@ class ChunkPage(BaseModel):
     total: int
     offset: int
     items: list[Chunk]
+
+
+class DenseIndexView(BaseModel):
+    """Whether a corpus version has a usable dense index under the configured embedder."""
+
+    corpus_id: str
+    version: int
+    state: DenseIndexState
+    index: DenseIndex | None = Field(description="Latest build for this version, if any")
+    embedder: EmbedderSpec
+    embedder_hash: str
+
+
+class DenseIndexBuild(BaseModel):
+    version: int | None = Field(default=None, ge=0, description="Defaults to the current version")
 
 
 class SupportedFormat(BaseModel):

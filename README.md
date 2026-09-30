@@ -36,7 +36,7 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 
 ## Status
 
-**Phase 2, lexical retrieval.** What exists and works today:
+**Phase 3, dense retrieval.** What exists and works today:
 
 | Area | State |
 |---|---|
@@ -49,9 +49,10 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 | Corpus workspace UI (list, create, upload, documents, versions, chunks, provenance) | Implemented against the real API |
 | Retrieval contract (`Retriever`) with a strategy registry | Implemented |
 | BM25 lexical retrieval with version-scoped statistics, `POST /api/v1/corpora/{id}/retrieve` | Implemented, deterministic, reproducible per corpus version |
-| Retrieval Lab UI (query, version, top-k, BM25 params, evidence, provenance) | Implemented against the real API |
+| Dense retrieval: `BAAI/bge-small-en-v1.5` (pinned, local ONNX), SQLite vector store, exact cosine search | Implemented; explicit index builds with ready/building/missing/stale/failed states |
+| Retrieval Lab UI: BM25, Dense and BM25-vs-Dense comparison, evidence, provenance | Implemented against the real API |
 | Retrieval metrics: Recall@K, Precision@K, MRR, nDCG@K | Implemented, `POST /api/v1/evaluation/retrieval` |
-| Dense / hybrid retrieval, reranking, router | Not built; unregistered strategies return `501` |
+| Hybrid retrieval, reranking, router | Not built; unregistered strategies return `501` |
 | Other product areas (Forge, Router, Evidence, Arena, …) | Scoped, not built |
 
 Numbers on the Overview marked **SAMPLE** (hatched badge) are preview data from
@@ -78,10 +79,10 @@ rag-forge/
 │   │   ├── src/rag_forge/
 │   │   │   ├── domain/       foundational models
 │   │   │   ├── ingestion/    extraction, chunking, ingestion service
-│   │   │   ├── retrieval/    retriever contract, analyzer, BM25, retrieval service
+│   │   │   ├── retrieval/    retriever contract, BM25, embeddings, dense index + retriever, service
 │   │   │   ├── evaluation/   retrieval metrics
 │   │   │   ├── provenance/   environment capture
-│   │   │   ├── storage/      store contract, SQLite store + migrations, lexical index, blobs
+│   │   │   ├── storage/      store contract, SQLite + migrations, lexical index, vector index, blobs
 │   │   │   ├── api/          HTTP schemas + routes (system, corpus)
 │   │   │   └── main.py       app factory
 │   │   └── tests/
@@ -101,7 +102,7 @@ rag-forge/
 
 See [docs/architecture.md](docs/architecture.md) for layering,
 [docs/ingestion.md](docs/ingestion.md) for ingestion and versioning,
-[docs/retrieval.md](docs/retrieval.md) for the retrieval contract and BM25 baseline, and
+[docs/retrieval.md](docs/retrieval.md) for the retrieval contract, BM25 and dense retrieval, and
 [docs/research/methodology.md](docs/research/methodology.md) for how comparisons will be run.
 
 ## Technology
@@ -111,6 +112,7 @@ See [docs/architecture.md](docs/architecture.md) for layering,
 | API | FastAPI, Pydantic v2, uvicorn | Typed contracts that generate OpenAPI |
 | Storage | SQLite (stdlib `sqlite3`, WAL), content-addressed files | Zero-ops locally; the store contract allows Postgres later |
 | Extraction | pypdf (PDF); stdlib for text/Markdown | Pure Python, no system dependencies |
+| Embeddings | onnxruntime + tokenizers, model files from the Hugging Face cache | Local, pinned, ~85 MB of deps instead of PyTorch |
 | Python tooling | uv, ruff, mypy (strict), pytest | Fast, lockfile-reproducible |
 | Web | Next.js 16, React 19, TypeScript, Tailwind v4 | App Router, static where possible |
 | Motion & charts | Motion, Recharts, SVG | Motion shows state and data flow |
@@ -147,13 +149,15 @@ npm run contracts                               # after changing API schemas
 
 Configuration: `NEXT_PUBLIC_API_URL` (web, default `http://localhost:8000`),
 `RAG_FORGE_CORS_ORIGINS` (API, comma-separated, default `http://localhost:3000`),
-`RAG_FORGE_DATA_DIR` (API, SQLite database and blobs; `npm run dev:api` uses the repo's `data/`).
+`RAG_FORGE_DATA_DIR` (API, SQLite database and blobs; `npm run dev:api` uses the repo's `data/`),
+`RAG_FORGE_EMBEDDER` (API, an `EmbedderSpec` as JSON to use another embedding model).
+The first dense index build downloads the pinned model (~133 MB) into `~/.cache/huggingface`.
 
 ## Roadmap
 
 1. ~~**Ingestion and corpus versioning.**~~ Done (Phase 1).
 2. ~~**Lexical retrieval baseline.**~~ Done (Phase 2): BM25 behind the `Retriever` contract; Retrieval Lab.
 3. **Arena v1.** Standard benchmark loaders (e.g. BEIR subsets), recorded runs, measured metrics against the BM25 baseline, Results.
-4. **Dense and hybrid retrieval.** A dense `Retriever` with an embedded vector index; fusion; reranking.
+4. ~~**Dense retrieval.**~~ Done (Phase 3). Next in this track: hybrid fusion and reranking.
 5. **Router v0.** Rule-based policy over query features, recorded decisions, head-to-head against fixed pipelines.
 6. **Generation and evidence.** Cited answers, claim-level verification, faithfulness.

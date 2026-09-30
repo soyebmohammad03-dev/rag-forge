@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 def new_id(prefix: str) -> str:
@@ -234,12 +234,85 @@ class Bm25Params(Model):
     b: float = Field(default=0.75, ge=0, le=1, description="Chunk-length normalisation")
 
 
+class EmbedderSpec(Model):
+    """What determines an embedding. Its hash keys every stored vector."""
+
+    provider: str = "onnx-sentence-transformers"
+    model: str = "BAAI/bge-small-en-v1.5"
+    revision: str = Field(
+        default="5c38ec7c405ec4b44b94cc5a9bb96e735b38267a", description="Pinned model commit"
+    )
+    query_prefix: str = Field(
+        default="Represent this sentence for searching relevant passages: ",
+        description="Instruction prepended to queries (not documents), per the model card",
+    )
+    max_seq_length: int | None = Field(default=None, description="None = the model's own limit")
+    batch_size: int = Field(default=32, ge=1, le=512)
+
+    def config_hash(self) -> str:
+        return canonical_hash(self.model_dump(mode="json"))
+
+
+class EmbedderInfo(Model):
+    """The spec plus facts read from the loaded model files."""
+
+    spec: EmbedderSpec
+    config_hash: str
+    dimension: int
+    pooling: str
+    normalize: bool
+    max_seq_length: int  # effective limit (spec override or the model's own)
+    weights_sha256: str
+
+
+class DenseIndexStatus(StrEnum):
+    BUILDING = "building"
+    READY = "ready"
+    FAILED = "failed"
+
+
+class DenseIndex(Model):
+    """One build of a dense index for a corpus version under one embedder config."""
+
+    id: str = Field(default_factory=lambda: new_id("dix"))
+    corpus_id: str
+    corpus_version: int
+    chunking_hash: str
+    embedder: EmbedderInfo
+    similarity: str = "cosine"
+    status: DenseIndexStatus = DenseIndexStatus.BUILDING
+    chunk_count: int = Field(ge=0, description="Chunks in the corpus version")
+    embedded: int = Field(default=0, ge=0, description="Progress: chunks with a vector so far")
+    reused: int = Field(default=0, ge=0, description="Vectors reused from earlier builds")
+    content_hash: str | None = Field(
+        default=None, description="SHA-256 over chunk ids and exact vector bytes; set when ready"
+    )
+    error: str | None = None
+    started_at: datetime = Field(default_factory=utcnow)
+    finished_at: datetime | None = None
+
+
+class DenseIndexState(StrEnum):
+    """What the UI may promise for a corpus version under the configured embedder."""
+
+    READY = "ready"
+    BUILDING = "building"
+    FAILED = "failed"  # the latest build for this version failed
+    STALE = "stale"  # no index here, but one exists for another version or embedder config
+    MISSING = "missing"
+
+
 class RetrievalRequest(Model):
     query: str = Field(min_length=1, max_length=2000)
     top_k: int = Field(default=10, ge=1, le=100)
     version: int | None = Field(default=None, ge=0, description="Corpus version; default current")
     strategy: RetrievalStrategy = RetrievalStrategy.SPARSE
     bm25: Bm25Params = Field(default_factory=Bm25Params)
+
+    @field_validator("strategy", mode="before")
+    @classmethod
+    def _strategy_alias(cls, value: object) -> object:
+        return "sparse" if value == "bm25" else value  # "bm25" names the sparse baseline
 
     @model_validator(mode="after")
     def _query_not_blank(self) -> RetrievalRequest:
@@ -267,6 +340,7 @@ class RetrievalProvenance(Model):
     retriever: str
     retriever_config: dict[str, Any]
     retriever_config_hash: str
+    index_id: str | None = Field(default=None, description="Dense index used, if any")
     query_terms: list[str]
     statistics: dict[str, float] = Field(
         description="Retriever-specific, e.g. candidate_chunks, avg_chunk_length, indexed_now"

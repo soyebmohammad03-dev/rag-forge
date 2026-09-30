@@ -5,9 +5,13 @@ description = "RAG FORGE research platform API: engine, router and arena service
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.142.2",
+    "huggingface-hub>=1.33.0",
+    "numpy>=2.5.3",
+    "onnxruntime>=1.30.0",
     "pydantic>=2.13.5",
     "pypdf>=6.19.0",
     "python-multipart>=0.0.32",
+    "tokenizers>=0.23.2",
     "uvicorn[standard]>=0.54.0",
 ]
 
@@ -29,6 +33,10 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 strict = true
 plugins = ["pydantic.mypy"]
 mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["onnxruntime", "onnxruntime.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

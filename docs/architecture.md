@@ -24,11 +24,11 @@ Packages exist only when they contain code. Current and planned:
 | `provenance` | Environment capture, provenance records | Environment capture present |
 | `storage` | `CorpusStore` contract, SQLite store, content-addressed blob store | Present |
 | `ingestion` | Extractors, chunkers, ingestion service, versioning | Present (see [ingestion.md](ingestion.md)) |
-| `retrieval` | `Retriever` contract, analyzer, BM25, retrieval service; later dense, fusion, reranking | BM25 present (see [retrieval.md](retrieval.md)) |
+| `retrieval` | `Retriever` contract, BM25, `Embedder` + ONNX embedder, dense index service + retriever; later fusion, reranking | BM25 and dense present (see [retrieval.md](retrieval.md)) |
 | `experiments` | Run orchestration, ablation grids | Phase 3 |
 | `router` | Query analysis, policies, `RouterDecision` recording | Phase 4 |
 | `knowledge` | Entities, relations, graph retrieval support | Later |
-| `models` | Provider adapters for embeddings, rerankers and LLMs | With the first dependency |
+| `models` | Provider adapters for rerankers and LLMs (embeddings live in `retrieval/embedding.py`) | With the first dependency |
 
 Dependency direction: `api → services → domain`. `domain` imports nothing from the project.
 
@@ -38,7 +38,7 @@ Dependency direction: `api → services → domain`. `domain` imports nothing fr
 |---|---|---|
 | Relational metadata (corpora, documents, versions, chunks, ingestions, experiments) | SQLite (`storage/sqlite.py`) | Postgres behind the same `CorpusStore` contract |
 | Lexical index | SQLite inverted index (`storage/lexical_index.py`), version-scoped BM25 statistics | Same contract on Postgres |
-| Vectors | none | A dense `Retriever` with an embedded index; backend swappable |
+| Vectors | SQLite BLOBs keyed by (embedder hash, chunk), exact cosine search (`storage/vector_index.py`) | FAISS / pgvector / ANN behind the same class |
 | Original document bytes | Content-addressed files `data/blobs/ab/abcd…` | Object storage with the same addressing |
 | Provenance | Model defined | Stored with each run, immutable |
 

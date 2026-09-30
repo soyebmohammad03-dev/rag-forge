@@ -40,3 +40,7 @@ export type RetrievalResponse = Schemas["RetrievalResponse"];
 export type RetrievalHit = Schemas["RetrievalHit"];
 export type RetrievalProvenance = Schemas["RetrievalProvenance"];
 export type RetrievalResult = Schemas["RetrievalResult"];
+export type DenseIndex = Schemas["DenseIndex"];
+export type DenseIndexState = Schemas["DenseIndexState"];
+export type DenseIndexView = Schemas["DenseIndexView"];
+export type EmbedderSpec = Schemas["EmbedderSpec"];

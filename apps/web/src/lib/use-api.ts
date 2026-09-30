@@ -12,38 +12,47 @@ export interface ApiState<T> {
 
 type Fetcher<T> = () => Promise<{ data?: T; error?: unknown; response: Response }>;
 
+/** A fixed interval, or a function of the latest data (return undefined to stop polling). */
+export type Poll<T> = number | ((data: T | undefined) => number | undefined);
+
 /**
- * Fetch from the typed API, optionally polling. `fetcher` must be stable (module-level or
- * useCallback); changing it refetches.
+ * Fetch from the typed API, optionally polling. `fetcher` and a function `poll` must be stable
+ * (module-level or useCallback); changing either refetches. Polls chain with setTimeout, so a
+ * slow request never overlaps the next one.
  * ponytail: no cache or dedupe; add a query library when several screens share data.
  */
-export function useApi<T>(fetcher: Fetcher<T>, pollMs?: number): ApiState<T> {
+export function useApi<T>(fetcher: Fetcher<T>, poll?: Poll<T>): ApiState<T> {
   const [state, setState] = useState<Omit<ApiState<T>, "reload">>({ loading: true });
   const [tick, setTick] = useState(0);
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const load = async () => {
+      let data: T | undefined;
       try {
-        const { data, error, response } = await fetcher();
+        const res = await fetcher();
         if (!alive) return;
+        data = res.data;
         setState(
-          error === undefined
+          res.error === undefined
             ? { data, loading: false }
-            : { loading: false, error: `API responded ${response.status}` },
+            : { loading: false, error: `API responded ${res.response.status}` },
         );
       } catch {
-        if (alive) setState({ loading: false, error: `API unreachable at ${API_URL}` });
+        if (!alive) return;
+        setState({ loading: false, error: `API unreachable at ${API_URL}` });
       }
+      const delay = typeof poll === "function" ? poll(data) : poll;
+      if (alive && delay) timer = setTimeout(load, delay);
     };
     load();
-    const id = pollMs ? setInterval(load, pollMs) : undefined;
     return () => {
       alive = false;
-      clearInterval(id);
+      clearTimeout(timer);
     };
-  }, [fetcher, pollMs, tick]);
+  }, [fetcher, poll, tick]);
 
   return { ...state, reload };
 }

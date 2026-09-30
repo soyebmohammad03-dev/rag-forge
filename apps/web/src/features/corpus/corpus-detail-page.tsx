@@ -14,6 +14,7 @@ import { api } from "@/lib/api";
 import { compact, formatBytes, shortHash, timeAgo } from "@/lib/format";
 import { useApi } from "@/lib/use-api";
 import { ChunkingSpec, Field, Stat } from "./bits";
+import { DenseIndexPanel, useDenseIndex } from "@/features/retrieval/dense-index";
 import { DocumentDrawer } from "./document-drawer";
 import { IngestionLog, VersionTimeline } from "./history";
 import { Uploader } from "./uploader";
@@ -71,6 +72,7 @@ export function CorpusDetailPage({ corpusId }: { corpusId: string }) {
     [corpusId, rev],
   );
   const summary = useApi(fetchCorpus);
+  const dense = useDenseIndex(corpusId, null, rev);
 
   if (summary.error && !summary.data)
     return (
@@ -171,6 +173,7 @@ export function CorpusDetailPage({ corpusId }: { corpusId: string }) {
               </p>
             </div>
           </Panel>
+          <DenseIndexPanel handle={dense} />
           <Panel>
             <PanelHeader eyebrow="Identity" title="Corpus record" />
             <dl className="divide-y divide-line">
