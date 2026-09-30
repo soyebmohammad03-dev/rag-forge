@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 def new_id(prefix: str) -> str:
@@ -22,6 +22,11 @@ def new_id(prefix: str) -> str:
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def canonical_hash(payload: Any) -> str:
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 class Model(BaseModel):
@@ -43,42 +48,93 @@ class ContentOrigin(StrEnum):
 # --- Corpus -------------------------------------------------------------------
 
 
+# Bump whenever chunk boundaries can change for the same config. It is part of the config hash,
+# so chunks produced by different algorithm versions are never mistaken for each other.
+CHUNKER_VERSION = 2
+
+
+class ChunkingStrategy(StrEnum):
+    RECURSIVE = "recursive"  # split on paragraph > line > sentence > word boundaries, then merge
+    FIXED = "fixed"  # fixed-size character windows; the naive baseline
+
+
+class ChunkingConfig(Model):
+    strategy: ChunkingStrategy = ChunkingStrategy.RECURSIVE
+    chunk_size: int = Field(default=1000, ge=50, le=20_000, description="Max characters")
+    chunk_overlap: int = Field(default=150, ge=0, description="Characters shared with previous")
+
+    @model_validator(mode="after")
+    def _overlap_smaller_than_size(self) -> ChunkingConfig:
+        if self.chunk_overlap >= self.chunk_size:
+            raise ValueError("chunk_overlap must be smaller than chunk_size")
+        return self
+
+    def config_hash(self) -> str:
+        return canonical_hash({**self.model_dump(mode="json"), "chunker_version": CHUNKER_VERSION})
+
+
 class Corpus(Model):
     id: str = Field(default_factory=lambda: new_id("cor"))
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
-    version: int = 0
-    document_count: int = 0
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
+    version: int = Field(default=0, ge=0, description="0 = empty; +1 per content change")
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class CorpusVersion(Model):
+    """An immutable snapshot: which document versions the corpus contained."""
+
+    corpus_id: str
+    version: int = Field(ge=0)
+    ingestion_id: str | None
+    document_count: int
+    added: int = 0
+    modified: int = 0
+    removed: int = 0
+    unchanged: int = 0
     created_at: datetime = Field(default_factory=utcnow)
 
 
 class Document(Model):
+    """A logical document, identified within its corpus by filename. Content lives in versions."""
+
     id: str = Field(default_factory=lambda: new_id("doc"))
     corpus_id: str
-    title: str
-    source_uri: str
-    media_type: str
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    filename: str
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class ExtractionStatus(StrEnum):
+    COMPLETE = "complete"
+    PARTIAL = "partial"  # some parts (e.g. PDF pages) failed; see warnings
 
 
 class DocumentVersion(Model):
     id: str = Field(default_factory=lambda: new_id("dv"))
     document_id: str
     version: int = Field(ge=1)
+    filename: str
+    media_type: str
     content_sha256: str
     byte_size: int = Field(ge=0)
+    parser: str  # extractor name@version
+    extraction_status: ExtractionStatus
+    extraction_warnings: list[str] = Field(default_factory=list)
+    text_chars: int = Field(ge=0)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utcnow)
 
 
 class Chunk(Model):
-    id: str = Field(default_factory=lambda: new_id("chk"))
+    id: str
     document_version_id: str
+    chunking_hash: str
     ordinal: int = Field(ge=0)
     text: str
-    char_start: int = Field(ge=0)
-    char_end: int = Field(ge=0)
-    chunker: str  # chunking strategy identifier + params hash
+    char_start: int = Field(ge=0, description="Offset into the extracted text (inclusive)")
+    char_end: int = Field(ge=0, description="Offset into the extracted text (exclusive)")
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -88,6 +144,56 @@ class Embedding(Model):
     model_version: str
     dimensions: int = Field(gt=0)
     vector: list[float] = Field(repr=False)
+
+
+# --- Ingestion provenance ----------------------------------------------------
+
+
+class FileOutcome(StrEnum):
+    ADDED = "added"
+    MODIFIED = "modified"
+    UNCHANGED = "unchanged"  # same filename, same content hash
+    DUPLICATE = "duplicate"  # same content as another document; not ingested
+    REJECTED = "rejected"  # unsupported, corrupt, empty or too large; not ingested
+    REMOVED = "removed"
+
+
+class IngestionFileResult(Model):
+    filename: str
+    outcome: FileOutcome
+    byte_size: int | None = None
+    content_sha256: str | None = None
+    media_type: str | None = None
+    parser: str | None = None
+    document_id: str | None = None
+    document_version_id: str | None = None
+    duplicate_of: str | None = None
+    duplicate_of_filename: str | None = None
+    chunk_count: int | None = None
+    error: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class IngestionStatus(StrEnum):
+    COMPLETED = "completed"  # produced a new corpus version
+    NO_CHANGE = "no_change"  # every file unchanged, duplicate or rejected
+    FAILED = "failed"  # nothing usable: every file rejected
+
+
+class IngestionRecord(Model):
+    """Provenance of one ingestion operation. Immutable once written."""
+
+    id: str = Field(default_factory=lambda: new_id("ing"))
+    corpus_id: str
+    status: IngestionStatus
+    version_before: int
+    version_after: int
+    files: list[IngestionFileResult]
+    chunking: ChunkingConfig
+    chunking_hash: str
+    environment: EnvironmentSnapshot
+    started_at: datetime
+    finished_at: datetime
 
 
 # --- Retrieval ----------------------------------------------------------------
@@ -164,9 +270,7 @@ class RAGConfiguration(Model):
 
     def config_hash(self) -> str:
         """Stable hash of behaviour-relevant fields (excludes id and name)."""
-        payload = self.model_dump(mode="json", exclude={"id", "name"})
-        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(canonical.encode()).hexdigest()
+        return canonical_hash(self.model_dump(mode="json", exclude={"id", "name"}))
 
 
 class RouterDecision(Model):

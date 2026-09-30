@@ -36,18 +36,20 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 
 ## Status
 
-**Phase 0, foundation.** What exists and works today:
+**Phase 1, ingestion and corpus versioning.** What exists and works today:
 
 | Area | State |
 |---|---|
-| Domain models (Corpus → ProvenanceRecord: 18 models, 4 enums) | Implemented, tested |
-| Retrieval metrics: Recall@K, Precision@K, MRR, nDCG@K | Implemented, tested, exposed at `POST /api/v1/evaluation/retrieval` |
-| Configuration hashing (identity of a run's behaviour) | Implemented, tested |
-| Environment snapshot for provenance | Implemented, `GET /api/v1/provenance/environment` |
-| Health, corpora, experiments, runs endpoints | Implemented (in-memory store) |
-| Ingestion, retrieval, router endpoints | Contract only; return `501` with a structured body |
-| Web shell, design system, Overview and System screens | Implemented |
-| Other product areas (Forge, Router, Retrieval Lab, Evidence, Arena, …) | Scoped, contracts linked, not built |
+| Persistent storage (SQLite + content-addressed blobs) | Implemented, append-only history enforced by DB triggers |
+| Corpus management: create, list, inspect, stats, metadata | Implemented |
+| Ingestion of TXT, Markdown, PDF with per-file outcomes and reasons | Implemented |
+| Corpus versioning: added / modified / removed / unchanged, duplicates by SHA-256 | Implemented, historical versions readable |
+| Chunking: `recursive` (boundary-aware) and `fixed` baseline, exact offsets | Implemented, configurable per corpus |
+| Ingestion provenance (parser, chunking hash, hashes, git commit, timings) | Implemented, one immutable record per operation |
+| Corpus workspace UI (list, create, upload, documents, versions, chunks, provenance) | Implemented against the real API |
+| Retrieval metrics: Recall@K, Precision@K, MRR, nDCG@K | Implemented, `POST /api/v1/evaluation/retrieval` |
+| Retrieval, router endpoints | Contract only; return `501` |
+| Other product areas (Forge, Router, Retrieval Lab, Evidence, Arena, …) | Scoped, not built |
 
 Numbers on the Overview marked **SAMPLE** (hatched badge) are preview data from
 `apps/web/src/sample/`. They were not measured. Everything marked **LIVE** comes from the API.
@@ -72,17 +74,18 @@ rag-forge/
 │   ├── api/                  FastAPI + Pydantic (Python ≥3.12, uv)
 │   │   ├── src/rag_forge/
 │   │   │   ├── domain/       foundational models
+│   │   │   ├── ingestion/    extraction, chunking, ingestion service
 │   │   │   ├── evaluation/   retrieval metrics
 │   │   │   ├── provenance/   environment capture
-│   │   │   ├── storage/      metadata store (in-memory for now)
-│   │   │   ├── api/          HTTP schemas + routes
+│   │   │   ├── storage/      store contract, SQLite store, blob store
+│   │   │   ├── api/          HTTP schemas + routes (system, corpus)
 │   │   │   └── main.py       app factory
 │   │   └── tests/
 │   └── web/                  Next.js 16 (App Router) + TypeScript + Tailwind v4
 │       └── src/
 │           ├── app/          routes only; thin
 │           ├── components/   ui/ (design system) · shell/ (sidebar, command palette)
-│           ├── features/     overview/ · system/ · planned/
+│           ├── features/     overview/ · corpus/ · system/ · planned/
 │           ├── lib/          typed API client, area registry
 │           └── sample/       preview data, isolated
 ├── packages/shared/          API contracts generated from OpenAPI
@@ -92,7 +95,8 @@ rag-forge/
 └── .github/workflows/ci.yml
 ```
 
-See [docs/architecture.md](docs/architecture.md) for layering, and
+See [docs/architecture.md](docs/architecture.md) for layering,
+[docs/ingestion.md](docs/ingestion.md) for ingestion and versioning, and
 [docs/research/methodology.md](docs/research/methodology.md) for how comparisons will be run.
 
 ## Technology
@@ -100,6 +104,8 @@ See [docs/architecture.md](docs/architecture.md) for layering, and
 | Layer | Choice | Why |
 |---|---|---|
 | API | FastAPI, Pydantic v2, uvicorn | Typed contracts that generate OpenAPI |
+| Storage | SQLite (stdlib `sqlite3`, WAL), content-addressed files | Zero-ops locally; the store contract allows Postgres later |
+| Extraction | pypdf (PDF); stdlib for text/Markdown | Pure Python, no system dependencies |
 | Python tooling | uv, ruff, mypy (strict), pytest | Fast, lockfile-reproducible |
 | Web | Next.js 16, React 19, TypeScript, Tailwind v4 | App Router, static where possible |
 | Motion & charts | Motion, Recharts, SVG | Motion shows state and data flow |
@@ -135,11 +141,12 @@ npm run contracts                               # after changing API schemas
 ```
 
 Configuration: `NEXT_PUBLIC_API_URL` (web, default `http://localhost:8000`),
-`RAG_FORGE_CORS_ORIGINS` (API, comma-separated, default `http://localhost:3000`).
+`RAG_FORGE_CORS_ORIGINS` (API, comma-separated, default `http://localhost:3000`),
+`RAG_FORGE_DATA_DIR` (API, SQLite database and blobs; `npm run dev:api` uses the repo's `data/`).
 
 ## Roadmap
 
-1. **Ingestion and corpus versioning.** Persistent store, document versions, a first chunker.
+1. ~~**Ingestion and corpus versioning.**~~ Done (Phase 1).
 2. **Baseline retrievers.** BM25 and one dense retriever behind a common interface; Retrieval Lab.
 3. **Arena v1.** Standard benchmark loaders (e.g. BEIR subsets), runs, measured metrics, Results.
 4. **Router v0.** Rule-based policy over query features, recorded decisions, head-to-head against fixed pipelines.

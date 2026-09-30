@@ -11,8 +11,6 @@ from rag_forge import __version__
 from rag_forge.api.schemas import (
     ComponentHealth,
     ComponentState,
-    CorpusCreate,
-    DocumentIngestRequest,
     EnvironmentResponse,
     ExperimentCreate,
     HealthStatus,
@@ -24,18 +22,18 @@ from rag_forge.api.schemas import (
     RouterRequest,
     RouterResponse,
 )
-from rag_forge.domain.models import Corpus, Experiment, ExperimentRun, Metric
+from rag_forge.domain.models import Experiment, ExperimentRun, Metric
 from rag_forge.evaluation import retrieval_metrics as rm
 from rag_forge.provenance.environment import capture_environment
-from rag_forge.storage.memory import InMemoryStore
+from rag_forge.storage.base import CorpusStore
 
 router = APIRouter(prefix="/api/v1")
 
 NOT_IMPLEMENTED: dict[int | str, dict[str, Any]] = {501: {"model": NotImplementedDetail}}
 
 
-def _store(request: Request) -> InMemoryStore:
-    store: InMemoryStore = request.app.state.store
+def _store(request: Request) -> CorpusStore:
+    store: CorpusStore = request.app.state.store
     return store
 
 
@@ -61,7 +59,7 @@ def health(request: Request) -> HealthStatus:
         ComponentHealth(
             name="metadata_store",
             state=ComponentState.OK,
-            detail=f"{store.kind}: data does not survive restarts",
+            detail=f"{store.kind}: {getattr(store, 'path', '')}",
         ),
         ComponentHealth(
             name="vector_index", state=ComponentState.NOT_CONFIGURED, detail="no index backend"
@@ -84,34 +82,6 @@ def health(request: Request) -> HealthStatus:
 @router.get("/provenance/environment", response_model=EnvironmentResponse, tags=["provenance"])
 def environment() -> EnvironmentResponse:
     return EnvironmentResponse(environment=capture_environment())
-
-
-# --- Corpus -------------------------------------------------------------------
-
-
-@router.get("/corpora", response_model=list[Corpus], tags=["corpus"])
-def list_corpora(request: Request) -> list[Corpus]:
-    return list(_store(request).corpora.values())
-
-
-@router.post(
-    "/corpora", response_model=Corpus, status_code=status.HTTP_201_CREATED, tags=["corpus"]
-)
-def create_corpus(body: CorpusCreate, request: Request) -> Corpus:
-    return _store(request).add_corpus(Corpus(name=body.name, description=body.description))
-
-
-@router.get("/corpora/{corpus_id}", response_model=Corpus, tags=["corpus"])
-def get_corpus(corpus_id: str, request: Request) -> Corpus:
-    corpus = _store(request).corpora.get(corpus_id)
-    if corpus is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="corpus not found")
-    return corpus
-
-
-@router.post("/corpora/{corpus_id}/documents", tags=["ingestion"], responses=NOT_IMPLEMENTED)
-def ingest_document(corpus_id: str, body: DocumentIngestRequest) -> None:
-    _not_implemented("Document ingestion")
 
 
 # --- Retrieval & routing -------------------------------------------------------
@@ -139,7 +109,7 @@ def decide(body: RouterRequest) -> RouterResponse:
 
 @router.get("/experiments", response_model=list[Experiment], tags=["experiments"])
 def list_experiments(request: Request) -> list[Experiment]:
-    return list(_store(request).experiments.values())
+    return _store(request).list_experiments()
 
 
 @router.post(
@@ -150,14 +120,14 @@ def list_experiments(request: Request) -> list[Experiment]:
 )
 def create_experiment(body: ExperimentCreate, request: Request) -> Experiment:
     store = _store(request)
-    if body.corpus_id is not None and body.corpus_id not in store.corpora:
+    if body.corpus_id is not None and store.get_corpus(body.corpus_id) is None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="unknown corpus_id")
     return store.add_experiment(Experiment(**body.model_dump()))
 
 
 @router.get("/runs", response_model=list[ExperimentRun], tags=["experiments"])
 def list_runs(request: Request) -> list[ExperimentRun]:
-    return list(_store(request).runs.values())
+    return _store(request).list_runs()
 
 
 # --- Evaluation ---------------------------------------------------------------

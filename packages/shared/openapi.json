@@ -47,172 +47,6 @@
         }
       }
     },
-    "/api/v1/corpora": {
-      "get": {
-        "tags": [
-          "corpus"
-        ],
-        "summary": "List Corpora",
-        "operationId": "list_corpora_api_v1_corpora_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/Corpus"
-                  },
-                  "type": "array",
-                  "title": "Response List Corpora Api V1 Corpora Get"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "corpus"
-        ],
-        "summary": "Create Corpus",
-        "operationId": "create_corpus_api_v1_corpora_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CorpusCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Corpus"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/corpora/{corpus_id}": {
-      "get": {
-        "tags": [
-          "corpus"
-        ],
-        "summary": "Get Corpus",
-        "operationId": "get_corpus_api_v1_corpora__corpus_id__get",
-        "parameters": [
-          {
-            "name": "corpus_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Corpus Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Corpus"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/corpora/{corpus_id}/documents": {
-      "post": {
-        "tags": [
-          "ingestion"
-        ],
-        "summary": "Ingest Document",
-        "operationId": "ingest_document_api_v1_corpora__corpus_id__documents_post",
-        "parameters": [
-          {
-            "name": "corpus_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Corpus Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DocumentIngestRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "501": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotImplementedDetail"
-                }
-              }
-            },
-            "description": "Not Implemented"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/retrieval/search": {
       "post": {
         "tags": [
@@ -444,10 +278,748 @@
           }
         }
       }
+    },
+    "/api/v1/ingestion/formats": {
+      "get": {
+        "tags": [
+          "corpus",
+          "ingestion"
+        ],
+        "summary": "Supported Formats",
+        "operationId": "supported_formats_api_v1_ingestion_formats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SupportedFormat"
+                  },
+                  "type": "array",
+                  "title": "Response Supported Formats Api V1 Ingestion Formats Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corpora": {
+      "get": {
+        "tags": [
+          "corpus"
+        ],
+        "summary": "List Corpora",
+        "operationId": "list_corpora_api_v1_corpora_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CorpusSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Corpora Api V1 Corpora Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "corpus"
+        ],
+        "summary": "Create Corpus",
+        "operationId": "create_corpus_api_v1_corpora_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorpusCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpusSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corpora/{corpus_id}": {
+      "get": {
+        "tags": [
+          "corpus"
+        ],
+        "summary": "Get Corpus",
+        "operationId": "get_corpus_api_v1_corpora__corpus_id__get",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpusSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corpora/{corpus_id}/documents": {
+      "get": {
+        "tags": [
+          "corpus"
+        ],
+        "summary": "List Documents",
+        "operationId": "list_documents_api_v1_corpora__corpus_id__documents_get",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Defaults to current",
+              "title": "Version"
+            },
+            "description": "Defaults to current"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentSummary"
+                  },
+                  "title": "Response List Documents Api V1 Corpora  Corpus Id  Documents Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "corpus",
+          "ingestion"
+        ],
+        "summary": "Ingest Documents",
+        "description": "Ingest a batch. Returns the ingestion record: one outcome per file, and the new version.",
+        "operationId": "ingest_documents_api_v1_corpora__corpus_id__documents_post",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_ingest_documents_api_v1_corpora__corpus_id__documents_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestionRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corpora/{corpus_id}/documents/{document_id}": {
+      "get": {
+        "tags": [
+          "corpus"
+        ],
+        "summary": "Get Document",
+        "operationId": "get_document_api_v1_corpora__corpus_id__documents__document_id__get",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          },
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "corpus",
+          "ingestion"
+        ],
+        "summary": "Remove Document",
+        "description": "Remove from the next corpus version. Earlier versions keep the document.",
+        "operationId": "remove_document_api_v1_corpora__corpus_id__documents__document_id__delete",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          },
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestionRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/document-versions/{version_id}/chunks": {
+      "get": {
+        "tags": [
+          "corpus"
+        ],
+        "summary": "List Chunks",
+        "operationId": "list_chunks_api_v1_document_versions__version_id__chunks_get",
+        "parameters": [
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Version Id"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChunkPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corpora/{corpus_id}/versions": {
+      "get": {
+        "tags": [
+          "corpus"
+        ],
+        "summary": "List Versions",
+        "operationId": "list_versions_api_v1_corpora__corpus_id__versions_get",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CorpusVersion"
+                  },
+                  "title": "Response List Versions Api V1 Corpora  Corpus Id  Versions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corpora/{corpus_id}/versions/{version}/changes": {
+      "get": {
+        "tags": [
+          "corpus"
+        ],
+        "summary": "Version Changes",
+        "operationId": "version_changes_api_v1_corpora__corpus_id__versions__version__changes_get",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VersionChange"
+                  },
+                  "title": "Response Version Changes Api V1 Corpora  Corpus Id  Versions  Version  Changes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corpora/{corpus_id}/ingestions": {
+      "get": {
+        "tags": [
+          "corpus",
+          "ingestion"
+        ],
+        "summary": "List Ingestions",
+        "operationId": "list_ingestions_api_v1_corpora__corpus_id__ingestions_get",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IngestionRecord"
+                  },
+                  "title": "Response List Ingestions Api V1 Corpora  Corpus Id  Ingestions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Body_ingest_documents_api_v1_corpora__corpus_id__documents_post": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Files",
+            "description": "One or more .txt, .md or .pdf files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "Body_ingest_documents_api_v1_corpora__corpus_id__documents_post"
+      },
+      "Chunk": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "document_version_id": {
+            "type": "string",
+            "title": "Document Version Id"
+          },
+          "chunking_hash": {
+            "type": "string",
+            "title": "Chunking Hash"
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Ordinal"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "char_start": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Char Start",
+            "description": "Offset into the extracted text (inclusive)"
+          },
+          "char_end": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Char End",
+            "description": "Offset into the extracted text (exclusive)"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "document_version_id",
+          "chunking_hash",
+          "ordinal",
+          "text",
+          "char_start",
+          "char_end",
+          "metadata"
+        ],
+        "title": "Chunk"
+      },
+      "ChunkPage": {
+        "properties": {
+          "document_version_id": {
+            "type": "string",
+            "title": "Document Version Id"
+          },
+          "chunking_hash": {
+            "type": "string",
+            "title": "Chunking Hash"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Chunk"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_version_id",
+          "chunking_hash",
+          "total",
+          "offset",
+          "items"
+        ],
+        "title": "ChunkPage"
+      },
+      "ChunkingConfig-Input": {
+        "properties": {
+          "strategy": {
+            "$ref": "#/components/schemas/ChunkingStrategy",
+            "default": "recursive"
+          },
+          "chunk_size": {
+            "type": "integer",
+            "maximum": 20000.0,
+            "minimum": 50.0,
+            "title": "Chunk Size",
+            "description": "Max characters",
+            "default": 1000
+          },
+          "chunk_overlap": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Chunk Overlap",
+            "description": "Characters shared with previous",
+            "default": 150
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ChunkingConfig"
+      },
+      "ChunkingConfig-Output": {
+        "properties": {
+          "strategy": {
+            "$ref": "#/components/schemas/ChunkingStrategy",
+            "default": "recursive"
+          },
+          "chunk_size": {
+            "type": "integer",
+            "maximum": 20000.0,
+            "minimum": 50.0,
+            "title": "Chunk Size",
+            "description": "Max characters",
+            "default": 1000
+          },
+          "chunk_overlap": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Chunk Overlap",
+            "description": "Characters shared with previous",
+            "default": 150
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "strategy",
+          "chunk_size",
+          "chunk_overlap"
+        ],
+        "title": "ChunkingConfig"
+      },
+      "ChunkingStrategy": {
+        "type": "string",
+        "enum": [
+          "recursive",
+          "fixed"
+        ],
+        "title": "ChunkingStrategy"
+      },
       "ComponentHealth": {
         "properties": {
           "name": {
@@ -508,14 +1080,19 @@
             "title": "Description",
             "default": ""
           },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "chunking": {
+            "$ref": "#/components/schemas/ChunkingConfig-Output"
+          },
           "version": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Version",
-            "default": 0
-          },
-          "document_count": {
-            "type": "integer",
-            "title": "Document Count",
+            "description": "0 = empty; +1 per content change",
             "default": 0
           },
           "created_at": {
@@ -530,8 +1107,9 @@
           "id",
           "name",
           "description",
+          "metadata",
+          "chunking",
           "version",
-          "document_count",
           "created_at"
         ],
         "title": "Corpus"
@@ -548,6 +1126,14 @@
             "type": "string",
             "title": "Description",
             "default": ""
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "chunking": {
+            "$ref": "#/components/schemas/ChunkingConfig-Input"
           }
         },
         "type": "object",
@@ -556,13 +1142,73 @@
         ],
         "title": "CorpusCreate"
       },
-      "DocumentIngestRequest": {
+      "CorpusStats": {
         "properties": {
-          "source_uri": {
-            "type": "string",
-            "title": "Source Uri"
+          "document_count": {
+            "type": "integer",
+            "title": "Document Count"
           },
-          "media_type": {
+          "chunk_count": {
+            "type": "integer",
+            "title": "Chunk Count"
+          },
+          "total_bytes": {
+            "type": "integer",
+            "title": "Total Bytes"
+          },
+          "total_chars": {
+            "type": "integer",
+            "title": "Total Chars"
+          },
+          "last_ingestion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IngestionRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_count",
+          "chunk_count",
+          "total_bytes",
+          "total_chars",
+          "last_ingestion"
+        ],
+        "title": "CorpusStats"
+      },
+      "CorpusSummary": {
+        "properties": {
+          "corpus": {
+            "$ref": "#/components/schemas/Corpus"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/CorpusStats"
+          }
+        },
+        "type": "object",
+        "required": [
+          "corpus",
+          "stats"
+        ],
+        "title": "CorpusSummary"
+      },
+      "CorpusVersion": {
+        "properties": {
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Version"
+          },
+          "ingestion_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -571,14 +1217,226 @@
                 "type": "null"
               }
             ],
-            "title": "Media Type"
+            "title": "Ingestion Id"
+          },
+          "document_count": {
+            "type": "integer",
+            "title": "Document Count"
+          },
+          "added": {
+            "type": "integer",
+            "title": "Added",
+            "default": 0
+          },
+          "modified": {
+            "type": "integer",
+            "title": "Modified",
+            "default": 0
+          },
+          "removed": {
+            "type": "integer",
+            "title": "Removed",
+            "default": 0
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "corpus_id",
+          "version",
+          "ingestion_id",
+          "document_count",
+          "added",
+          "modified",
+          "removed",
+          "unchanged",
+          "created_at"
+        ],
+        "title": "CorpusVersion",
+        "description": "An immutable snapshot: which document versions the corpus contained."
+      },
+      "Document": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "corpus_id",
+          "filename",
+          "created_at"
+        ],
+        "title": "Document",
+        "description": "A logical document, identified within its corpus by filename. Content lives in versions."
+      },
+      "DocumentDetail": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/Document"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentVersion"
+            },
+            "type": "array",
+            "title": "Versions",
+            "description": "All versions, oldest first"
+          },
+          "current_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Id",
+            "description": "Version in the corpus's current version; null if the document was removed"
           }
         },
         "type": "object",
         "required": [
-          "source_uri"
+          "document",
+          "versions",
+          "current_version_id"
         ],
-        "title": "DocumentIngestRequest"
+        "title": "DocumentDetail"
+      },
+      "DocumentSummary": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "version_count": {
+            "type": "integer",
+            "title": "Version Count"
+          },
+          "current": {
+            "$ref": "#/components/schemas/DocumentVersion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "filename",
+          "version_count",
+          "current"
+        ],
+        "title": "DocumentSummary"
+      },
+      "DocumentVersion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "content_sha256": {
+            "type": "string",
+            "title": "Content Sha256"
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Byte Size"
+          },
+          "parser": {
+            "type": "string",
+            "title": "Parser"
+          },
+          "extraction_status": {
+            "$ref": "#/components/schemas/ExtractionStatus"
+          },
+          "extraction_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Extraction Warnings"
+          },
+          "text_chars": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Text Chars"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "document_id",
+          "version",
+          "filename",
+          "media_type",
+          "content_sha256",
+          "byte_size",
+          "parser",
+          "extraction_status",
+          "extraction_warnings",
+          "text_chars",
+          "metadata",
+          "created_at"
+        ],
+        "title": "DocumentVersion"
       },
       "EnvironmentResponse": {
         "properties": {
@@ -808,6 +1666,26 @@
         ],
         "title": "ExperimentStatus"
       },
+      "ExtractionStatus": {
+        "type": "string",
+        "enum": [
+          "complete",
+          "partial"
+        ],
+        "title": "ExtractionStatus"
+      },
+      "FileOutcome": {
+        "type": "string",
+        "enum": [
+          "added",
+          "modified",
+          "unchanged",
+          "duplicate",
+          "rejected",
+          "removed"
+        ],
+        "title": "FileOutcome"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -857,6 +1735,228 @@
           "components"
         ],
         "title": "HealthStatus"
+      },
+      "IngestionFileResult": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/FileOutcome"
+          },
+          "byte_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Byte Size"
+          },
+          "content_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Sha256"
+          },
+          "media_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Type"
+          },
+          "parser": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parser"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "document_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Version Id"
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicate Of"
+          },
+          "duplicate_of_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicate Of Filename"
+          },
+          "chunk_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Count"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "filename",
+          "outcome",
+          "byte_size",
+          "content_sha256",
+          "media_type",
+          "parser",
+          "document_id",
+          "document_version_id",
+          "duplicate_of",
+          "duplicate_of_filename",
+          "chunk_count",
+          "error",
+          "warnings"
+        ],
+        "title": "IngestionFileResult"
+      },
+      "IngestionRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/IngestionStatus"
+          },
+          "version_before": {
+            "type": "integer",
+            "title": "Version Before"
+          },
+          "version_after": {
+            "type": "integer",
+            "title": "Version After"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/IngestionFileResult"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "chunking": {
+            "$ref": "#/components/schemas/ChunkingConfig-Output"
+          },
+          "chunking_hash": {
+            "type": "string",
+            "title": "Chunking Hash"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/EnvironmentSnapshot"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Finished At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "corpus_id",
+          "status",
+          "version_before",
+          "version_after",
+          "files",
+          "chunking",
+          "chunking_hash",
+          "environment",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "IngestionRecord",
+        "description": "Provenance of one ingestion operation. Immutable once written."
+      },
+      "IngestionStatus": {
+        "type": "string",
+        "enum": [
+          "completed",
+          "no_change",
+          "failed"
+        ],
+        "title": "IngestionStatus"
       },
       "Metric": {
         "properties": {
@@ -1205,6 +2305,32 @@
         ],
         "title": "RouterResponse"
       },
+      "SupportedFormat": {
+        "properties": {
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "extensions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Extensions"
+          },
+          "parser": {
+            "type": "string",
+            "title": "Parser"
+          }
+        },
+        "type": "object",
+        "required": [
+          "media_type",
+          "extensions",
+          "parser"
+        ],
+        "title": "SupportedFormat"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -1244,6 +2370,52 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VersionChange": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "change": {
+            "$ref": "#/components/schemas/FileOutcome"
+          },
+          "document_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Version Id"
+          },
+          "previous_document_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Document Version Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "filename",
+          "change",
+          "document_version_id",
+          "previous_document_version_id"
+        ],
+        "title": "VersionChange"
       }
     }
   }

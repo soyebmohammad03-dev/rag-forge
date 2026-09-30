@@ -146,10 +146,8 @@ export const AREAS: Area[] = [
     label: "Corpus",
     group: "Data",
     icon: Database,
-    status: "planned",
-    summary: "Datasets, documents, versions and indexing jobs.",
-    capabilities: ["Versioned ingestion", "Parsing and chunking previews", "Index job status"],
-    contracts: ["Corpus", "Document", "DocumentVersion", "GET /api/v1/corpora"],
+    status: "live",
+    summary: "Versioned corpora: ingestion, documents, version history and chunk inspection.",
   },
   {
     slug: "knowledge",

@@ -4,10 +4,16 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from rag_forge.domain.models import (
+    Chunk,
+    ChunkingConfig,
+    Corpus,
+    Document,
+    DocumentVersion,
     EnvironmentSnapshot,
     Metric,
     Query,
@@ -15,6 +21,7 @@ from rag_forge.domain.models import (
     RetrievalStrategy,
     RouterDecision,
 )
+from rag_forge.storage.base import CorpusStats
 
 
 class ComponentState(StrEnum):
@@ -45,17 +52,48 @@ class NotImplementedDetail(BaseModel):
 class CorpusCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
+
+
+class CorpusSummary(BaseModel):
+    corpus: Corpus
+    stats: CorpusStats
+
+
+class DocumentSummary(BaseModel):
+    document_id: str
+    filename: str
+    version_count: int
+    current: DocumentVersion
+
+
+class DocumentDetail(BaseModel):
+    document: Document
+    versions: list[DocumentVersion] = Field(description="All versions, oldest first")
+    current_version_id: str | None = Field(
+        description="Version in the corpus's current version; null if the document was removed"
+    )
+
+
+class ChunkPage(BaseModel):
+    document_version_id: str
+    chunking_hash: str
+    total: int
+    offset: int
+    items: list[Chunk]
+
+
+class SupportedFormat(BaseModel):
+    media_type: str
+    extensions: list[str]
+    parser: str
 
 
 class ExperimentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     hypothesis: str = ""
     corpus_id: str | None = None
-
-
-class DocumentIngestRequest(BaseModel):
-    source_uri: str
-    media_type: str | None = None
 
 
 class RetrievalRequest(BaseModel):

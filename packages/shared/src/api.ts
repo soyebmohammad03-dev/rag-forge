@@ -38,58 +38,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/corpora": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Corpora */
-        get: operations["list_corpora_api_v1_corpora_get"];
-        put?: never;
-        /** Create Corpus */
-        post: operations["create_corpus_api_v1_corpora_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/corpora/{corpus_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Corpus */
-        get: operations["get_corpus_api_v1_corpora__corpus_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/corpora/{corpus_id}/documents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Ingest Document */
-        post: operations["ingest_document_api_v1_corpora__corpus_id__documents_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/retrieval/search": {
         parameters: {
             query?: never;
@@ -176,10 +124,259 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ingestion/formats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Supported Formats */
+        get: operations["supported_formats_api_v1_ingestion_formats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corpora": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Corpora */
+        get: operations["list_corpora_api_v1_corpora_get"];
+        put?: never;
+        /** Create Corpus */
+        post: operations["create_corpus_api_v1_corpora_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corpora/{corpus_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Corpus */
+        get: operations["get_corpus_api_v1_corpora__corpus_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corpora/{corpus_id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Documents */
+        get: operations["list_documents_api_v1_corpora__corpus_id__documents_get"];
+        put?: never;
+        /**
+         * Ingest Documents
+         * @description Ingest a batch. Returns the ingestion record: one outcome per file, and the new version.
+         */
+        post: operations["ingest_documents_api_v1_corpora__corpus_id__documents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corpora/{corpus_id}/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Document */
+        get: operations["get_document_api_v1_corpora__corpus_id__documents__document_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Document
+         * @description Remove from the next corpus version. Earlier versions keep the document.
+         */
+        delete: operations["remove_document_api_v1_corpora__corpus_id__documents__document_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/document-versions/{version_id}/chunks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Chunks */
+        get: operations["list_chunks_api_v1_document_versions__version_id__chunks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corpora/{corpus_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Versions */
+        get: operations["list_versions_api_v1_corpora__corpus_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corpora/{corpus_id}/versions/{version}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Version Changes */
+        get: operations["version_changes_api_v1_corpora__corpus_id__versions__version__changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/corpora/{corpus_id}/ingestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Ingestions */
+        get: operations["list_ingestions_api_v1_corpora__corpus_id__ingestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Body_ingest_documents_api_v1_corpora__corpus_id__documents_post */
+        Body_ingest_documents_api_v1_corpora__corpus_id__documents_post: {
+            /**
+             * Files
+             * @description One or more .txt, .md or .pdf files
+             */
+            files: string[];
+        };
+        /** Chunk */
+        Chunk: {
+            /** Id */
+            id: string;
+            /** Document Version Id */
+            document_version_id: string;
+            /** Chunking Hash */
+            chunking_hash: string;
+            /** Ordinal */
+            ordinal: number;
+            /** Text */
+            text: string;
+            /**
+             * Char Start
+             * @description Offset into the extracted text (inclusive)
+             */
+            char_start: number;
+            /**
+             * Char End
+             * @description Offset into the extracted text (exclusive)
+             */
+            char_end: number;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+        };
+        /** ChunkPage */
+        ChunkPage: {
+            /** Document Version Id */
+            document_version_id: string;
+            /** Chunking Hash */
+            chunking_hash: string;
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Items */
+            items: components["schemas"]["Chunk"][];
+        };
+        /** ChunkingConfig */
+        "ChunkingConfig-Input": {
+            /** @default recursive */
+            strategy: components["schemas"]["ChunkingStrategy"];
+            /**
+             * Chunk Size
+             * @description Max characters
+             * @default 1000
+             */
+            chunk_size: number;
+            /**
+             * Chunk Overlap
+             * @description Characters shared with previous
+             * @default 150
+             */
+            chunk_overlap: number;
+        };
+        /** ChunkingConfig */
+        "ChunkingConfig-Output": {
+            /** @default recursive */
+            strategy: components["schemas"]["ChunkingStrategy"];
+            /**
+             * Chunk Size
+             * @description Max characters
+             * @default 1000
+             */
+            chunk_size: number;
+            /**
+             * Chunk Overlap
+             * @description Characters shared with previous
+             * @default 150
+             */
+            chunk_overlap: number;
+        };
+        /**
+         * ChunkingStrategy
+         * @enum {string}
+         */
+        ChunkingStrategy: "recursive" | "fixed";
         /** ComponentHealth */
         ComponentHealth: {
             /** Name */
@@ -210,16 +407,17 @@ export interface components {
              * @default
              */
             description: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            chunking: components["schemas"]["ChunkingConfig-Output"];
             /**
              * Version
+             * @description 0 = empty; +1 per content change
              * @default 0
              */
             version: number;
-            /**
-             * Document Count
-             * @default 0
-             */
-            document_count: number;
             /**
              * Created At
              * Format: date-time
@@ -235,13 +433,141 @@ export interface components {
              * @default
              */
             description: string;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            chunking?: components["schemas"]["ChunkingConfig-Input"];
         };
-        /** DocumentIngestRequest */
-        DocumentIngestRequest: {
-            /** Source Uri */
-            source_uri: string;
+        /** CorpusStats */
+        CorpusStats: {
+            /** Document Count */
+            document_count: number;
+            /** Chunk Count */
+            chunk_count: number;
+            /** Total Bytes */
+            total_bytes: number;
+            /** Total Chars */
+            total_chars: number;
+            last_ingestion: components["schemas"]["IngestionRecord"] | null;
+        };
+        /** CorpusSummary */
+        CorpusSummary: {
+            corpus: components["schemas"]["Corpus"];
+            stats: components["schemas"]["CorpusStats"];
+        };
+        /**
+         * CorpusVersion
+         * @description An immutable snapshot: which document versions the corpus contained.
+         */
+        CorpusVersion: {
+            /** Corpus Id */
+            corpus_id: string;
+            /** Version */
+            version: number;
+            /** Ingestion Id */
+            ingestion_id: string | null;
+            /** Document Count */
+            document_count: number;
+            /**
+             * Added
+             * @default 0
+             */
+            added: number;
+            /**
+             * Modified
+             * @default 0
+             */
+            modified: number;
+            /**
+             * Removed
+             * @default 0
+             */
+            removed: number;
+            /**
+             * Unchanged
+             * @default 0
+             */
+            unchanged: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * Document
+         * @description A logical document, identified within its corpus by filename. Content lives in versions.
+         */
+        Document: {
+            /** Id */
+            id: string;
+            /** Corpus Id */
+            corpus_id: string;
+            /** Filename */
+            filename: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** DocumentDetail */
+        DocumentDetail: {
+            document: components["schemas"]["Document"];
+            /**
+             * Versions
+             * @description All versions, oldest first
+             */
+            versions: components["schemas"]["DocumentVersion"][];
+            /**
+             * Current Version Id
+             * @description Version in the corpus's current version; null if the document was removed
+             */
+            current_version_id: string | null;
+        };
+        /** DocumentSummary */
+        DocumentSummary: {
+            /** Document Id */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /** Version Count */
+            version_count: number;
+            current: components["schemas"]["DocumentVersion"];
+        };
+        /** DocumentVersion */
+        DocumentVersion: {
+            /** Id */
+            id: string;
+            /** Document Id */
+            document_id: string;
+            /** Version */
+            version: number;
+            /** Filename */
+            filename: string;
             /** Media Type */
-            media_type?: string | null;
+            media_type: string;
+            /** Content Sha256 */
+            content_sha256: string;
+            /** Byte Size */
+            byte_size: number;
+            /** Parser */
+            parser: string;
+            extraction_status: components["schemas"]["ExtractionStatus"];
+            /** Extraction Warnings */
+            extraction_warnings: string[];
+            /** Text Chars */
+            text_chars: number;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** EnvironmentResponse */
         EnvironmentResponse: {
@@ -321,6 +647,16 @@ export interface components {
          * @enum {string}
          */
         ExperimentStatus: "draft" | "queued" | "running" | "completed" | "failed";
+        /**
+         * ExtractionStatus
+         * @enum {string}
+         */
+        ExtractionStatus: "complete" | "partial";
+        /**
+         * FileOutcome
+         * @enum {string}
+         */
+        FileOutcome: "added" | "modified" | "unchanged" | "duplicate" | "rejected" | "removed";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -342,6 +678,70 @@ export interface components {
             /** Components */
             components: components["schemas"]["ComponentHealth"][];
         };
+        /** IngestionFileResult */
+        IngestionFileResult: {
+            /** Filename */
+            filename: string;
+            outcome: components["schemas"]["FileOutcome"];
+            /** Byte Size */
+            byte_size: number | null;
+            /** Content Sha256 */
+            content_sha256: string | null;
+            /** Media Type */
+            media_type: string | null;
+            /** Parser */
+            parser: string | null;
+            /** Document Id */
+            document_id: string | null;
+            /** Document Version Id */
+            document_version_id: string | null;
+            /** Duplicate Of */
+            duplicate_of: string | null;
+            /** Duplicate Of Filename */
+            duplicate_of_filename: string | null;
+            /** Chunk Count */
+            chunk_count: number | null;
+            /** Error */
+            error: string | null;
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * IngestionRecord
+         * @description Provenance of one ingestion operation. Immutable once written.
+         */
+        IngestionRecord: {
+            /** Id */
+            id: string;
+            /** Corpus Id */
+            corpus_id: string;
+            status: components["schemas"]["IngestionStatus"];
+            /** Version Before */
+            version_before: number;
+            /** Version After */
+            version_after: number;
+            /** Files */
+            files: components["schemas"]["IngestionFileResult"][];
+            chunking: components["schemas"]["ChunkingConfig-Output"];
+            /** Chunking Hash */
+            chunking_hash: string;
+            environment: components["schemas"]["EnvironmentSnapshot"];
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Finished At
+             * Format: date-time
+             */
+            finished_at: string;
+        };
+        /**
+         * IngestionStatus
+         * @enum {string}
+         */
+        IngestionStatus: "completed" | "no_change" | "failed";
         /** Metric */
         Metric: {
             /** Name */
@@ -481,6 +881,15 @@ export interface components {
             query: components["schemas"]["Query"];
             decision: components["schemas"]["RouterDecision"];
         };
+        /** SupportedFormat */
+        SupportedFormat: {
+            /** Media Type */
+            media_type: string;
+            /** Extensions */
+            extensions: string[];
+            /** Parser */
+            parser: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -493,6 +902,18 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VersionChange */
+        VersionChange: {
+            /** Document Id */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            change: components["schemas"]["FileOutcome"];
+            /** Document Version Id */
+            document_version_id: string | null;
+            /** Previous Document Version Id */
+            previous_document_version_id: string | null;
         };
     };
     responses: never;
@@ -539,134 +960,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnvironmentResponse"];
-                };
-            };
-        };
-    };
-    list_corpora_api_v1_corpora_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Corpus"][];
-                };
-            };
-        };
-    };
-    create_corpus_api_v1_corpora_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CorpusCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Corpus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_corpus_api_v1_corpora__corpus_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                corpus_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Corpus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    ingest_document_api_v1_corpora__corpus_id__documents_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                corpus_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DocumentIngestRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotImplementedDetail"];
                 };
             };
         };
@@ -848,6 +1141,371 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RetrievalEvaluationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    supported_formats_api_v1_ingestion_formats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportedFormat"][];
+                };
+            };
+        };
+    };
+    list_corpora_api_v1_corpora_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpusSummary"][];
+                };
+            };
+        };
+    };
+    create_corpus_api_v1_corpora_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorpusCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpusSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_corpus_api_v1_corpora__corpus_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corpus_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpusSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_documents_api_v1_corpora__corpus_id__documents_get: {
+        parameters: {
+            query?: {
+                /** @description Defaults to current */
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                corpus_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ingest_documents_api_v1_corpora__corpus_id__documents_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corpus_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_ingest_documents_api_v1_corpora__corpus_id__documents_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestionRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_document_api_v1_corpora__corpus_id__documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corpus_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_document_api_v1_corpora__corpus_id__documents__document_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corpus_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestionRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_chunks_api_v1_document_versions__version_id__chunks_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChunkPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_versions_api_v1_corpora__corpus_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corpus_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpusVersion"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    version_changes_api_v1_corpora__corpus_id__versions__version__changes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corpus_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionChange"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_ingestions_api_v1_corpora__corpus_id__ingestions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corpus_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestionRecord"][];
                 };
             };
             /** @description Validation Error */

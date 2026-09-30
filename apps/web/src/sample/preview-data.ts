@@ -80,22 +80,6 @@ export const sampleActivity = Array.from({ length: 24 }, (_, h) => {
   return row;
 });
 
-export interface SampleCorpus {
-  name: string;
-  version: number;
-  documents: number;
-  chunks: number;
-  embedding: string;
-  indexed: number; // 0..1
-}
-
-export const sampleCorpora: SampleCorpus[] = [
-  { name: "scifact", version: 3, documents: 5_183, chunks: 41_902, embedding: "bge-base-en-v1.5", indexed: 1 },
-  { name: "hotpotqa-dev", version: 1, documents: 66_581, chunks: 212_440, embedding: "e5-large-v2", indexed: 0.62 },
-  { name: "fiqa-2018", version: 2, documents: 57_638, chunks: 188_015, embedding: "bge-base-en-v1.5", indexed: 1 },
-  { name: "eng-handbook", version: 7, documents: 412, chunks: 6_830, embedding: "—", indexed: 0 },
-];
-
 export type SampleRunStatus = "completed" | "running" | "failed" | "queued";
 
 export interface SampleExperiment {

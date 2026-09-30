@@ -22,8 +22,8 @@ Packages exist only when they contain code. Current and planned:
 | `api` | HTTP schemas and routes; thin, delegates to services | Present |
 | `evaluation` | Metrics and evaluators; pure functions over recorded outputs | Retrieval metrics present |
 | `provenance` | Environment capture, provenance records | Environment capture present |
-| `storage` | Metadata store; later object/artifact store | In-memory store present |
-| `ingestion` | Loaders, parsers, chunkers, versioning | Phase 1 |
+| `storage` | `CorpusStore` contract, SQLite store, content-addressed blob store | Present |
+| `ingestion` | Extractors, chunkers, ingestion service, versioning | Present (see [ingestion.md](ingestion.md)) |
 | `retrieval` | Retriever implementations behind one interface; fusion; reranking | Phase 2 |
 | `experiments` | Run orchestration, ablation grids | Phase 3 |
 | `router` | Query analysis, policies, `RouterDecision` recording | Phase 4 |
@@ -36,9 +36,9 @@ Dependency direction: `api → services → domain`. `domain` imports nothing fr
 
 | Concern | Now | Next |
 |---|---|---|
-| Relational metadata (corpora, experiments, runs) | In-memory dicts | SQLite locally → Postgres |
+| Relational metadata (corpora, documents, versions, chunks, ingestions, experiments) | SQLite (`storage/sqlite.py`) | Postgres behind the same `CorpusStore` contract |
 | Vectors | none | Pluggable index interface; start with an embedded index, keep the backend swappable |
-| Documents and artifacts | none | Content-addressed files (sha256) under `data/` and `experiments/` |
+| Original document bytes | Content-addressed files `data/blobs/ab/abcd…` | Object storage with the same addressing |
 | Provenance | Model defined | Stored with each run, immutable |
 
 ## Identity and reproducibility
@@ -51,8 +51,8 @@ Dependency direction: `api → services → domain`. `domain` imports nothing fr
 
 ## Frontend structure
 
-- `app/`: routing only. Planned areas share one dynamic route (`[area]`) driven by
-  `lib/areas.ts`, so there are no placeholder page files.
+- `app/`: routing only. Built areas have their own routes (`/corpus`, `/corpus/[corpusId]`,
+  `/system`); planned areas share one dynamic route (`[area]`) driven by `lib/areas.ts`.
 - `components/ui/`: the design system (panel, button, badge, tabs, tooltip, dialog/drawer,
   data table, metric card, sparkline, chart theme, graph node, pipeline steps, states).
 - `components/shell/`: sidebar, top bar, command palette (⌘K), shortcuts (?).

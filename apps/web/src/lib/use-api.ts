@@ -13,7 +13,8 @@ export interface ApiState<T> {
 type Fetcher<T> = () => Promise<{ data?: T; error?: unknown; response: Response }>;
 
 /**
- * Fetch from the typed API, optionally polling. `fetcher` must be stable (module-level).
+ * Fetch from the typed API, optionally polling. `fetcher` must be stable (module-level or
+ * useCallback); changing it refetches.
  * ponytail: no cache or dedupe; add a query library when several screens share data.
  */
 export function useApi<T>(fetcher: Fetcher<T>, pollMs?: number): ApiState<T> {
@@ -51,3 +52,4 @@ export const fetchHealth = () => api.GET("/api/v1/health");
 export const fetchEnvironment = () => api.GET("/api/v1/provenance/environment");
 export const fetchExperiments = () => api.GET("/api/v1/experiments");
 export const fetchCorpora = () => api.GET("/api/v1/corpora");
+export const fetchFormats = () => api.GET("/api/v1/ingestion/formats");

@@ -1,6 +1,6 @@
 # 0001: Foundations
 
-Date: 2026-09-30 · Status: accepted
+Date: 2026-09-30 · Status: accepted · Item 4 superseded by 0002
 
 ## Decisions
 

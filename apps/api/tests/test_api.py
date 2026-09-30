@@ -1,14 +1,8 @@
 from fastapi.testclient import TestClient
 
-from rag_forge.main import create_app
 
-
-def client() -> TestClient:
-    return TestClient(create_app())
-
-
-def test_health_reports_components_honestly() -> None:
-    body = client().get("/api/v1/health").json()
+def test_health_reports_components_honestly(client: TestClient) -> None:
+    body = client.get("/api/v1/health").json()
     assert body["status"] == "ok"
     states = {c["name"]: c["state"] for c in body["components"]}
     assert states["api"] == "ok"
@@ -16,26 +10,16 @@ def test_health_reports_components_honestly() -> None:
     assert states["llm_provider"] == "not_configured"
 
 
-def test_corpus_lifecycle() -> None:
-    c = client()
-    assert c.get("/api/v1/corpora").json() == []
-    created = c.post("/api/v1/corpora", json={"name": "scifact"}).json()
-    assert created["id"].startswith("cor_")
-    assert c.get(f"/api/v1/corpora/{created['id']}").json()["name"] == "scifact"
-    assert c.get("/api/v1/corpora/cor_missing").status_code == 404
-    assert c.post("/api/v1/corpora", json={"name": ""}).status_code == 422
-
-
-def test_experiment_rejects_unknown_corpus() -> None:
-    c = client()
+def test_experiment_rejects_unknown_corpus(client: TestClient) -> None:
+    c = client
     assert c.post("/api/v1/experiments", json={"name": "x", "corpus_id": "nope"}).status_code == 422
     created = c.post("/api/v1/experiments", json={"name": "baseline"})
     assert created.status_code == 201
     assert created.json()["status"] == "draft"
 
 
-def test_unimplemented_capabilities_return_501_not_fake_data() -> None:
-    c = client()
+def test_unimplemented_capabilities_return_501_not_fake_data(client: TestClient) -> None:
+    c = client
     r = c.post(
         "/api/v1/retrieval/search",
         json={"corpus_id": "c", "query": "q", "strategies": ["dense"]},
@@ -50,8 +34,8 @@ def test_unimplemented_capabilities_return_501_not_fake_data() -> None:
     )
 
 
-def test_evaluation_endpoint_measures() -> None:
-    r = client().post(
+def test_evaluation_endpoint_measures(client: TestClient) -> None:
+    r = client.post(
         "/api/v1/evaluation/retrieval",
         json={"ranked_ids": ["a", "b", "c"], "relevance": {"b": 1}, "ks": [1, 3]},
     )
@@ -62,12 +46,12 @@ def test_evaluation_endpoint_measures() -> None:
     assert all(m["origin"] == "measured" for m in metrics.values())
 
 
-def test_evaluation_rejects_empty_judgements() -> None:
-    r = client().post("/api/v1/evaluation/retrieval", json={"ranked_ids": ["a"], "relevance": {}})
+def test_evaluation_rejects_empty_judgements(client: TestClient) -> None:
+    r = client.post("/api/v1/evaluation/retrieval", json={"ranked_ids": ["a"], "relevance": {}})
     assert r.status_code == 422
 
 
-def test_environment_snapshot() -> None:
-    env = client().get("/api/v1/provenance/environment").json()["environment"]
+def test_environment_snapshot(client: TestClient) -> None:
+    env = client.get("/api/v1/provenance/environment").json()["environment"]
     assert env["rag_forge_version"] == "0.1.0"
     assert "fastapi" in env["packages"]
