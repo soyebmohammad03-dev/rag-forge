@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+/*
+ * RAG FORGE visual language: an instrument, not a SaaS dashboard.
+ * Graphite surfaces, a phosphor-amber signal colour, a cyan trace colour,
+ * and one fixed categorical colour per retrieval strategy so a strategy
+ * reads the same in every chart, diagram and table.
+ */
+@theme {
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --color-bg: #08090b;
+  --color-surface: #0e1014;
+  --color-surface-2: #13161b;
+  --color-surface-3: #1a1e25;
+  --color-line: #1f242c;
+  --color-line-strong: #2c333d;
+  --color-fg: #e7e9ec;
+  --color-fg-muted: #9ba3ae;
+  --color-fg-subtle: #646d79;
+
+  --color-signal: #f0a33a;
+  --color-signal-dim: #3a2a14;
+  --color-trace: #5cc3d6;
+  --color-trace-dim: #133038;
+
+  --color-ok: #5ec48c;
+  --color-warn: #f0a33a;
+  --color-err: #ef6a6a;
+  --color-idle: #646d79;
+
+  /* retrieval strategies */
+  --color-s-sparse: #f0a33a;
+  --color-s-dense: #5cc3d6;
+  --color-s-hybrid: #9fd26a;
+  --color-s-metadata: #8aa2f2;
+  --color-s-graph: #e8799b;
+  --color-s-rerank: #e3d067;
+
+  --radius-panel: 10px;
+  --shadow-panel: 0 0 0 1px var(--color-line), 0 1px 0 0 rgb(255 255 255 / 0.03) inset,
+    0 12px 32px -16px rgb(0 0 0 / 0.6);
+
+  --animate-pulse-soft: pulse-soft 2.4s ease-in-out infinite;
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Instrument graticule behind the workspace. */
+.graticule {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(240 163 58 / 0.06), transparent 70%),
+    linear-gradient(var(--color-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-line) 1px, transparent 1px);
+  background-size: 100% 100%, 48px 48px, 48px 48px;
+  background-position: 0 0, -1px -1px, -1px -1px;
+  mask-image: linear-gradient(to bottom, black, transparent 520px);
+}
+
+/* Hatched fill marks simulated / preview values everywhere they appear. */
+.hatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgb(155 163 174 / 0.14) 0 2px,
+    transparent 2px 6px
+  );
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-trace);
+  outline-offset: 2px;
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+}
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateX(24px); }
+}
+
+dialog::backdrop {
+  background: rgb(4 5 7 / 0.7);
+  backdrop-filter: blur(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

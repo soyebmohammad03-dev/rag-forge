@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+.venv/
+
+# builds & caches
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# research data and run outputs are versioned by the platform, not git
+data/*
+!data/README.md
+experiments/*
+!experiments/README.md
+
+# local tooling
+.DS_Store
+.claude/
+.vscode/
+.idea/
+*.log
