@@ -13,8 +13,9 @@ from rag_forge.domain.models import EmbedderSpec, RetrievalStrategy
 from rag_forge.ingestion.service import IngestionService
 from rag_forge.retrieval.dense import DenseIndexService, DenseRetriever
 from rag_forge.retrieval.embedding import Embedder, OnnxSentenceEmbedder
+from rag_forge.retrieval.hybrid import hybrid_factory
 from rag_forge.retrieval.lexical import Bm25Retriever
-from rag_forge.retrieval.service import RetrievalService
+from rag_forge.retrieval.service import RetrievalService, RetrieverFactory
 from rag_forge.storage.blobs import BlobStore
 from rag_forge.storage.lexical_index import SqliteLexicalIndex
 from rag_forge.storage.sqlite import SqliteStore
@@ -41,12 +42,14 @@ def create_app(data_dir: Path | None = None, embedder: Embedder | None = None) -
     dense = DenseIndexService(SqliteVectorIndex(store), embedder)
     app.state.dense = dense
     # New strategies register here; the service, API and UI stay unchanged.
+    single: dict[RetrievalStrategy, RetrieverFactory] = {
+        RetrievalStrategy.SPARSE: lambda req: Bm25Retriever(lexical, req.bm25),
+        RetrievalStrategy.DENSE: lambda req: DenseRetriever(dense),
+    }
     app.state.retrieval = RetrievalService(
         store,
-        {
-            RetrievalStrategy.SPARSE: lambda req: Bm25Retriever(lexical, req.bm25),
-            RetrievalStrategy.DENSE: lambda req: DenseRetriever(dense),
-        },
+        {**single, RetrievalStrategy.HYBRID: hybrid_factory(single)},
+        embedder=embedder.spec,
     )
     app.state.started_at = datetime.now(UTC)
     origins = os.environ.get("RAG_FORGE_CORS_ORIGINS", "http://localhost:3000").split(",")

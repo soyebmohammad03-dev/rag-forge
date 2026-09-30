@@ -302,12 +302,75 @@ class DenseIndexState(StrEnum):
     MISSING = "missing"
 
 
+class FusionMethod(StrEnum):
+    RRF = "rrf"  # reciprocal rank fusion: uses ranks only (primary baseline)
+    WEIGHTED = "weighted"  # weighted sum of per-list min-max normalised scores
+
+
+FUSABLE = (RetrievalStrategy.SPARSE, RetrievalStrategy.DENSE)
+
+
+class HybridParams(Model):
+    retrievers: list[RetrievalStrategy] = Field(
+        default_factory=lambda: list(FUSABLE), description="Component strategies to fuse"
+    )
+    fusion: FusionMethod = FusionMethod.RRF
+    rrf_k: int = Field(default=60, ge=1, le=1000, description="RRF smoothing constant")
+    weights: dict[RetrievalStrategy, float] = Field(
+        default_factory=lambda: {s: 0.5 for s in FUSABLE},
+        description="Weighted fusion only: one weight per component, each 0..1, summing to 1",
+    )
+    candidate_k: int = Field(
+        default=50, ge=1, le=200, description="Candidates requested from each component"
+    )
+
+    @model_validator(mode="after")
+    def _valid(self) -> HybridParams:
+        if len(set(self.retrievers)) != len(self.retrievers) or len(self.retrievers) < 2:
+            raise ValueError("hybrid needs at least two distinct component retrievers")
+        if not set(self.retrievers) <= set(FUSABLE):
+            raise ValueError(f"hybrid components must be among {[s.value for s in FUSABLE]}")
+        if self.fusion is FusionMethod.WEIGHTED:
+            if set(self.weights) != set(self.retrievers):
+                raise ValueError("weights must name exactly the component retrievers")
+            if any(not 0 <= w <= 1 for w in self.weights.values()):
+                raise ValueError("each weight must be between 0 and 1")
+            if abs(sum(self.weights.values()) - 1) > 1e-9:
+                raise ValueError("weights must sum to 1")
+        return self
+
+    def effective(self) -> HybridParams:
+        """Blank out parameters the chosen method ignores, so they cannot change config hashes."""
+        if self.fusion is FusionMethod.RRF:
+            return self.model_copy(update={"weights": {}})
+        return self.model_copy(update={"rrf_k": HybridParams.model_fields["rrf_k"].default})
+
+
+class ComponentScore(Model):
+    """How one component retriever saw a fused chunk. Raw scores are never rescaled here."""
+
+    strategy: RetrievalStrategy
+    rank: int | None = Field(description="Rank in that retriever's candidates; null if absent")
+    score: float | None = Field(description="That retriever's own raw score")
+    normalized_score: float | None = Field(
+        default=None, description="Weighted fusion only: min-max normalised score in 0..1"
+    )
+    contribution: float = Field(description="This component's share of the fused score")
+
+
+class FusionDetail(Model):
+    method: FusionMethod
+    score: float = Field(description="Final fused score (the hit's result.score)")
+    components: list[ComponentScore]
+
+
 class RetrievalRequest(Model):
     query: str = Field(min_length=1, max_length=2000)
     top_k: int = Field(default=10, ge=1, le=100)
     version: int | None = Field(default=None, ge=0, description="Corpus version; default current")
     strategy: RetrievalStrategy = RetrievalStrategy.SPARSE
     bm25: Bm25Params = Field(default_factory=Bm25Params)
+    hybrid: HybridParams = Field(default_factory=HybridParams)
 
     @field_validator("strategy", mode="before")
     @classmethod
@@ -318,7 +381,25 @@ class RetrievalRequest(Model):
     def _query_not_blank(self) -> RetrievalRequest:
         if not self.query.strip():
             raise ValueError("query must not be blank")
+        if self.strategy is RetrievalStrategy.HYBRID and self.hybrid.candidate_k < self.top_k:
+            raise ValueError("hybrid.candidate_k must be at least top_k")
         return self
+
+
+class RetrievalConfiguration(Model):
+    """Everything that determines a ranked result set, resolved. The unit an experiment varies."""
+
+    corpus_id: str
+    corpus_version: int
+    chunking_hash: str
+    strategy: RetrievalStrategy
+    top_k: int
+    bm25: Bm25Params | None = None
+    embedder: EmbedderSpec | None = None
+    hybrid: HybridParams | None = None
+
+    def config_hash(self) -> str:
+        return canonical_hash(self.model_dump(mode="json"))
 
 
 class RetrievalHit(Model):
@@ -330,6 +411,7 @@ class RetrievalHit(Model):
     media_type: str
     document_version: int
     matched_terms: list[str]
+    fusion: FusionDetail | None = Field(default=None, description="Hybrid only")
 
 
 class RetrievalProvenance(Model):
@@ -340,6 +422,8 @@ class RetrievalProvenance(Model):
     retriever: str
     retriever_config: dict[str, Any]
     retriever_config_hash: str
+    configuration: RetrievalConfiguration
+    configuration_hash: str
     index_id: str | None = Field(default=None, description="Dense index used, if any")
     query_terms: list[str]
     statistics: dict[str, float] = Field(

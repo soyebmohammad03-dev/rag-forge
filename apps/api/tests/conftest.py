@@ -4,8 +4,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from rag_forge.domain.models import EmbedderSpec
 from rag_forge.ingestion.service import IngestionService
 from rag_forge.main import create_app
+from rag_forge.retrieval.embedding import OnnxSentenceEmbedder
 from rag_forge.storage.blobs import BlobStore
 from rag_forge.storage.sqlite import SqliteStore
 
@@ -38,6 +40,12 @@ def make_pdf(pages: list[str]) -> bytes:
         out += f"{o:010d} 00000 n \n".encode()
     out += f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
     return bytes(out)
+
+
+@pytest.fixture(scope="session")
+def embedder() -> OnnxSentenceEmbedder:
+    """The real pinned model, loaded once per session (downloaded once into the HF cache)."""
+    return OnnxSentenceEmbedder(EmbedderSpec())
 
 
 @pytest.fixture

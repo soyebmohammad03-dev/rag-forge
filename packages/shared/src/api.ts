@@ -318,7 +318,22 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** Bm25Params */
-        Bm25Params: {
+        "Bm25Params-Input": {
+            /**
+             * K1
+             * @description Term-frequency saturation
+             * @default 1.2
+             */
+            k1: number;
+            /**
+             * B
+             * @description Chunk-length normalisation
+             * @default 0.75
+             */
+            b: number;
+        };
+        /** Bm25Params */
+        "Bm25Params-Output": {
             /**
              * K1
              * @description Term-frequency saturation
@@ -426,6 +441,33 @@ export interface components {
             state: components["schemas"]["ComponentState"];
             /** Detail */
             detail: string;
+        };
+        /**
+         * ComponentScore
+         * @description How one component retriever saw a fused chunk. Raw scores are never rescaled here.
+         */
+        ComponentScore: {
+            strategy: components["schemas"]["RetrievalStrategy"];
+            /**
+             * Rank
+             * @description Rank in that retriever's candidates; null if absent
+             */
+            rank: number | null;
+            /**
+             * Score
+             * @description That retriever's own raw score
+             */
+            score: number | null;
+            /**
+             * Normalized Score
+             * @description Weighted fusion only: min-max normalised score in 0..1
+             */
+            normalized_score: number | null;
+            /**
+             * Contribution
+             * @description This component's share of the fused score
+             */
+            contribution: number;
         };
         /**
          * ComponentState
@@ -844,6 +886,22 @@ export interface components {
          * @enum {string}
          */
         FileOutcome: "added" | "modified" | "unchanged" | "duplicate" | "rejected" | "removed";
+        /** FusionDetail */
+        FusionDetail: {
+            method: components["schemas"]["FusionMethod"];
+            /**
+             * Score
+             * @description Final fused score (the hit's result.score)
+             */
+            score: number;
+            /** Components */
+            components: components["schemas"]["ComponentScore"][];
+        };
+        /**
+         * FusionMethod
+         * @enum {string}
+         */
+        FusionMethod: "rrf" | "weighted";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -864,6 +922,64 @@ export interface components {
             uptime_seconds: number;
             /** Components */
             components: components["schemas"]["ComponentHealth"][];
+        };
+        /** HybridParams */
+        "HybridParams-Input": {
+            /**
+             * Retrievers
+             * @description Component strategies to fuse
+             */
+            retrievers?: components["schemas"]["RetrievalStrategy"][];
+            /** @default rrf */
+            fusion: components["schemas"]["FusionMethod"];
+            /**
+             * Rrf K
+             * @description RRF smoothing constant
+             * @default 60
+             */
+            rrf_k: number;
+            /**
+             * Weights
+             * @description Weighted fusion only: one weight per component, each 0..1, summing to 1
+             */
+            weights?: {
+                [key: string]: number;
+            };
+            /**
+             * Candidate K
+             * @description Candidates requested from each component
+             * @default 50
+             */
+            candidate_k: number;
+        };
+        /** HybridParams */
+        "HybridParams-Output": {
+            /**
+             * Retrievers
+             * @description Component strategies to fuse
+             */
+            retrievers: components["schemas"]["RetrievalStrategy"][];
+            /** @default rrf */
+            fusion: components["schemas"]["FusionMethod"];
+            /**
+             * Rrf K
+             * @description RRF smoothing constant
+             * @default 60
+             */
+            rrf_k: number;
+            /**
+             * Weights
+             * @description Weighted fusion only: one weight per component, each 0..1, summing to 1
+             */
+            weights: {
+                [key: string]: number;
+            };
+            /**
+             * Candidate K
+             * @description Candidates requested from each component
+             * @default 50
+             */
+            candidate_k: number;
         };
         /** IngestionFileResult */
         IngestionFileResult: {
@@ -963,6 +1079,24 @@ export interface components {
              */
             created_at: string;
         };
+        /**
+         * RetrievalConfiguration
+         * @description Everything that determines a ranked result set, resolved. The unit an experiment varies.
+         */
+        RetrievalConfiguration: {
+            /** Corpus Id */
+            corpus_id: string;
+            /** Corpus Version */
+            corpus_version: number;
+            /** Chunking Hash */
+            chunking_hash: string;
+            strategy: components["schemas"]["RetrievalStrategy"];
+            /** Top K */
+            top_k: number;
+            bm25: components["schemas"]["Bm25Params-Output"] | null;
+            embedder: components["schemas"]["EmbedderSpec"] | null;
+            hybrid: components["schemas"]["HybridParams-Output"] | null;
+        };
         /** RetrievalEvaluationRequest */
         RetrievalEvaluationRequest: {
             /** Ranked Ids */
@@ -1004,6 +1138,8 @@ export interface components {
             document_version: number;
             /** Matched Terms */
             matched_terms: string[];
+            /** @description Hybrid only */
+            fusion: components["schemas"]["FusionDetail"] | null;
         };
         /** RetrievalProvenance */
         RetrievalProvenance: {
@@ -1022,6 +1158,9 @@ export interface components {
             };
             /** Retriever Config Hash */
             retriever_config_hash: string;
+            configuration: components["schemas"]["RetrievalConfiguration"];
+            /** Configuration Hash */
+            configuration_hash: string;
             /**
              * Index Id
              * @description Dense index used, if any
@@ -1061,7 +1200,8 @@ export interface components {
             version?: number | null;
             /** @default sparse */
             strategy: components["schemas"]["RetrievalStrategy"];
-            bm25?: components["schemas"]["Bm25Params"];
+            bm25?: components["schemas"]["Bm25Params-Input"];
+            hybrid?: components["schemas"]["HybridParams-Input"];
         };
         /** RetrievalResponse */
         RetrievalResponse: {

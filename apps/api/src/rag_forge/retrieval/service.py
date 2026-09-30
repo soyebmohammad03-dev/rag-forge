@@ -6,8 +6,11 @@ import time
 from collections.abc import Callable, Mapping
 
 from rag_forge.domain.models import (
+    Corpus,
     DocumentVersion,
+    EmbedderSpec,
     Query,
+    RetrievalConfiguration,
     RetrievalHit,
     RetrievalProvenance,
     RetrievalRequest,
@@ -28,6 +31,10 @@ class CorpusVersionNotFoundError(LookupError):
     pass
 
 
+class ForeignResultError(RuntimeError):
+    """A retriever returned chunks that are not in the requested corpus version."""
+
+
 class StrategyNotAvailableError(LookupError):
     def __init__(self, strategy: RetrievalStrategy, available: list[RetrievalStrategy]) -> None:
         names = ", ".join(sorted(available))
@@ -38,10 +45,14 @@ class StrategyNotAvailableError(LookupError):
 
 class RetrievalService:
     def __init__(
-        self, store: CorpusStore, retrievers: Mapping[RetrievalStrategy, RetrieverFactory]
+        self,
+        store: CorpusStore,
+        retrievers: Mapping[RetrievalStrategy, RetrieverFactory],
+        embedder: EmbedderSpec | None = None,
     ) -> None:
         self.store = store
         self.retrievers = retrievers
+        self.embedder = embedder  # recorded in configurations that involve dense retrieval
 
     def retrieve(self, corpus_id: str, request: RetrievalRequest) -> RetrievalResponse:
         started = time.perf_counter()
@@ -59,6 +70,20 @@ class RetrievalService:
         output = retriever.retrieve(corpus, version, request.query, request.top_k)
         query = Query(text=request.query)
         chunks = self.store.get_chunks([c.chunk_id for c in output.candidates])
+        members = {dv.id for dv in self.store.members(corpus.id, version).values()}
+        chash = corpus.chunking.config_hash()
+        foreign = [
+            c.chunk_id
+            for c in output.candidates
+            if c.chunk_id not in chunks
+            or chunks[c.chunk_id].document_version_id not in members
+            or chunks[c.chunk_id].chunking_hash != chash
+        ]
+        if foreign:  # a retriever returned something outside the requested version: never serve it
+            raise ForeignResultError(
+                f"{retriever.name} returned {len(foreign)} chunk(s) outside corpus version "
+                f"{version} (e.g. {foreign[0]})"
+            )
         versions: dict[str, DocumentVersion] = {}
         hits = []
         for rank, candidate in enumerate(output.candidates, 1):
@@ -86,10 +111,12 @@ class RetrievalService:
                     media_type=dv.media_type,
                     document_version=dv.version,
                     matched_terms=list(candidate.matched_terms),
+                    fusion=candidate.fusion,
                 )
             )
 
         config = retriever.config()
+        configuration = self._configuration(request, corpus, version)
         provenance = RetrievalProvenance(
             corpus_id=corpus.id,
             corpus_version=version,
@@ -98,6 +125,8 @@ class RetrievalService:
             retriever=retriever.name,
             retriever_config=config,
             retriever_config_hash=canonical_hash({"retriever": retriever.name, **config}),
+            configuration=configuration,
+            configuration_hash=configuration.config_hash(),
             index_id=output.index_id,
             query_terms=output.query_terms,
             statistics=output.statistics,
@@ -106,4 +135,21 @@ class RetrievalService:
         )
         return RetrievalResponse(
             query=query, hits=hits, provenance=provenance, warnings=output.warnings
+        )
+
+    def _configuration(
+        self, request: RetrievalRequest, corpus: Corpus, version: int
+    ) -> RetrievalConfiguration:
+        """The resolved configuration, holding only parameters that affect this strategy."""
+        hybrid = request.strategy is RetrievalStrategy.HYBRID
+        used = set(request.hybrid.retrievers) if hybrid else {request.strategy}
+        return RetrievalConfiguration(
+            corpus_id=corpus.id,
+            corpus_version=version,
+            chunking_hash=corpus.chunking.config_hash(),
+            strategy=request.strategy,
+            top_k=request.top_k,
+            bm25=request.bm25 if RetrievalStrategy.SPARSE in used else None,
+            embedder=self.embedder if RetrievalStrategy.DENSE in used else None,
+            hybrid=request.hybrid.effective() if hybrid else None,
         )

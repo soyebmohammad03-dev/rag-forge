@@ -34,11 +34,6 @@ DOCS = [
 ]
 
 
-@pytest.fixture(scope="session")
-def embedder() -> OnnxSentenceEmbedder:
-    return OnnxSentenceEmbedder(EmbedderSpec())
-
-
 @pytest.fixture
 def dense(store: SqliteStore, embedder: OnnxSentenceEmbedder) -> DenseIndexService:
     return DenseIndexService(SqliteVectorIndex(store), embedder)

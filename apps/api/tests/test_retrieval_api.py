@@ -108,3 +108,56 @@ def test_unavailable_embedder_is_503(tmp_path: Any) -> None:
         r = c.post(f"/api/v1/corpora/{cid}/dense-index", json={})
         assert r.status_code == 503 and "unavailable" in r.json()["detail"]
         assert c.get(f"/api/v1/corpora/{cid}/dense-index").json()["state"] == "missing"
+
+
+def test_hybrid_api(client: TestClient) -> None:
+    cid = client.post("/api/v1/corpora", json={"name": "hy"}).json()["corpus"]["id"]
+    client.post(
+        f"/api/v1/corpora/{cid}/documents",
+        files=[
+            ("files", ("plants.txt", b"Green plants make food from sunlight and water.")),
+            ("files", ("cars.txt", b"Automobiles need regular oil changes.")),
+            ("files", ("bm25.txt", b"BM25 ranks documents by exact term overlap.")),
+        ],
+    )
+    url = f"/api/v1/corpora/{cid}/retrieve"
+    blocked = client.post(url, json={"query": "plants", "strategy": "hybrid"})
+    assert blocked.status_code == 409
+    assert blocked.json()["detail"]["component"] == "dense"  # no silent BM25-only "hybrid"
+
+    client.post(f"/api/v1/corpora/{cid}/dense-index", json={})
+    body = {"query": "plants sunlight", "strategy": "hybrid", "top_k": 3}
+    rrf = client.post(url, json={**body, "hybrid": {"rrf_k": 20, "candidate_k": 3}})
+    assert rrf.status_code == 200, rrf.text
+    hit = rrf.json()["hits"][0]
+    assert hit["filename"] == "plants.txt" and hit["result"]["strategy"] == "hybrid"
+    fusion = hit["fusion"]
+    assert fusion["method"] == "rrf" and fusion["score"] == hit["result"]["score"]
+    assert {c["strategy"] for c in fusion["components"]} == {"sparse", "dense"}
+    assert all(c["contribution"] == 1 / (20 + c["rank"]) for c in fusion["components"])
+    prov = rrf.json()["provenance"]
+    assert prov["configuration"]["hybrid"]["rrf_k"] == 20 and prov["configuration_hash"]
+
+    weighted = client.post(
+        url,
+        json={**body, "hybrid": {"fusion": "weighted", "weights": {"sparse": 0.4, "dense": 0.6}}},
+    )
+    assert weighted.status_code == 200
+    comps = weighted.json()["hits"][0]["fusion"]["components"]
+    assert all(0 <= c["normalized_score"] <= 1 for c in comps if c["normalized_score"] is not None)
+
+    sparse = client.post(url, json={"query": "plants", "strategy": "bm25"}).json()
+    dense = client.post(url, json={"query": "plants", "strategy": "dense"}).json()
+    assert sparse["hits"][0]["fusion"] is None and dense["hits"][0]["fusion"] is None
+    assert sparse["hits"][0].keys() == rrf.json()["hits"][0].keys()  # one response schema
+
+    for bad in (
+        {"fusion": "weighted", "weights": {"sparse": 0.5, "dense": 0.6}},
+        {"fusion": "weighted", "weights": {"sparse": 1.0}},
+        {"retrievers": ["sparse"]},
+        {"rrf_k": 0},
+        {"candidate_k": 2},  # fewer candidates than top_k=3
+        {"fusion": "borda"},
+    ):
+        r = client.post(url, json={**body, "hybrid": bad})
+        assert r.status_code == 422, bad

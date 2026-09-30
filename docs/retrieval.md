@@ -3,8 +3,9 @@
 Code: `apps/api/src/rag_forge/retrieval/`, `apps/api/src/rag_forge/storage/lexical_index.py` and
 `apps/api/src/rag_forge/storage/vector_index.py`.
 
-Two strategies run behind one contract: **`sparse`** (BM25, also accepted as `"bm25"`) and
-**`dense`** (embedding similarity). Both return the same `RetrievalResponse` shape.
+Three strategies run behind one contract: **`sparse`** (BM25, also accepted as `"bm25"`),
+**`dense`** (embedding similarity) and **`hybrid`** (fusion of the two). All return the same
+`RetrievalResponse` shape; hybrid hits add a `fusion` block, which is `null` for the others.
 
 ## Flow
 
@@ -189,13 +190,97 @@ The Retrieval Lab's **Compare** mode runs both on the same query, corpus and ver
 shared and unique chunks, rank movement, score distributions (on their own scales) and latency.
 It is inspection only; measured quality comparisons belong to the Arena.
 
-## Toward hybrid retrieval
+## Hybrid retrieval
 
-Both retrievers already return ranked candidates for the same corpus version and chunking under
-one contract. A hybrid retriever will call both and fuse the lists (reciprocal rank fusion first,
-since it needs no score calibration between BM25 and cosine), register as
-`RetrievalStrategy.HYBRID`, and report both sub-configs in its provenance. No storage changes are
-needed.
+Code: `retrieval/fusion.py`, `retrieval/hybrid.py`.
+
+```
+query ──▶ HybridRetriever
+            ├─ BM25 retriever  ── top candidate_k ─┐   (same corpus version, same chunking)
+            └─ Dense retriever ── top candidate_k ─┤
+                                                   ▼
+               check: both searched the same chunk set (else 409 "mismatch")
+                                                   ▼
+               FusionStrategy.fuse(lists, top_k) ──▶ fused candidates + per-component detail
+```
+
+Hybrid is a **fixed strategy**: the request names the components and the fusion method. It does
+not look at the query to decide anything; adaptive routing is a later phase.
+
+### Fusion contract
+
+`FusionStrategy` (`method`, `config()`, `fuse(lists, top_k)`) receives `{strategy: ranked
+candidates}` and returns fused candidates. Each carries a `FusionDetail`: the method, the final
+score, and one `ComponentScore` per component with its **original rank, original raw score,
+normalised score (weighted only) and contribution**. Raw component scores are never overwritten;
+the fused score is `result.score` and `fusion.score`. Duplicate chunks are merged (a chunk
+appears once, with one entry per component). Ordering is by fused score rounded to 12 decimals,
+then chunk id, so floating-point summation order cannot decide a genuine tie. Adding a method
+(e.g. CombSUM, Borda, learned fusion) is one class and one branch in `make_fusion`.
+
+### Reciprocal Rank Fusion (primary baseline)
+
+`RRF(d) = Σ_lists 1 / (k + rank_list(d))`, default `k = 60` (Cormack et al., 2009), configurable
+1–1000. A chunk missing from a list contributes 0 there.
+
+Why RRF is the baseline: it uses **ranks only**, so it needs no assumptions about how BM25 scores
+(unbounded, query-dependent) relate to cosine similarities (bounded, compressed). It has one
+parameter, is robust across collections, and is the standard hybrid baseline in IR. `k` controls
+how much the top ranks dominate: small `k` rewards being first in one list; large `k` rewards
+appearing in several lists.
+
+### Weighted fusion and normalisation
+
+`score(d) = Σ_lists w_list · minmax_list(d)`, where `minmax` rescales one list's raw scores to
+0..1 over the retrieved candidates (`(s − min) / (max − min)`; a constant list maps to 1). A chunk
+missing from a list contributes 0. Weights are one per component, each in 0..1, summing to 1
+(validated; 422 otherwise).
+
+Raw BM25 and cosine scores are **never** combined directly: a BM25 score of 5 and a cosine of 0.7
+are not on a common scale, so a raw sum would be dominated by BM25 regardless of intent. Min-max
+is simple, deterministic and scale-free, but relative: it depends on the candidate set (and so on
+`candidate_k`) and is sensitive to outliers. That is why RRF stays the primary baseline.
+
+### Parameters and validation
+
+`hybrid`: `retrievers` (≥ 2 distinct of `sparse`, `dense`), `fusion` (`rrf` | `weighted`),
+`rrf_k`, `weights`, `candidate_k` (1–200, must be ≥ `top_k`). `top_k` is the final list length.
+Invalid combinations return 422 with the reason.
+
+### Compatibility and failure behaviour
+
+- Every component searches the requested corpus version under the corpus's chunking config.
+  The hybrid retriever refuses to fuse unless all components report the same number of searched
+  chunks (409, `state: "mismatch"`).
+- The service checks every returned chunk belongs to the requested version and chunking before
+  serving it (for all strategies); anything else is a 500, never a silent result.
+- No ready dense index: 409 with `component: "dense"` and the index state. Hybrid never degrades
+  to BM25-only.
+- The BM25 index cannot be missing: it is built lazily per chunk on first use
+  (`sparse.indexed_now` reports it).
+
+### Provenance
+
+`retriever_config` holds the fusion config (method, `k` or weights and normalisation),
+`candidate_k` and each component's full config; `statistics` are prefixed by component
+(`sparse.matched_chunks`, `dense.query_embedding_ms`, …) plus `fused_candidates`; `index_id` is
+the dense index used; `query_terms` come from BM25.
+
+## Retrieval configuration
+
+`RetrievalConfiguration` (in every response's provenance, with `configuration_hash`) is the
+complete, resolved description of a ranked result set: corpus id, version and chunking hash,
+strategy, `top_k`, BM25 parameters (if BM25 participates), embedder spec (if dense participates)
+and hybrid parameters (if hybrid). Parameters a strategy ignores are omitted or blanked
+(`HybridParams.effective()`), so two behaviourally identical runs share a hash. This is the unit
+the Arena will vary and compare.
+
+## Toward the Router
+
+The Router will choose, per query, which of these configurations to run (for example BM25-only
+for identifier lookups, hybrid for open questions). It will call the same `RetrievalService`
+with a chosen `RetrievalConfiguration` and record the choice as a `RouterDecision`; fusion and
+retrievers need no changes.
 
 ## Known limits
 
@@ -203,7 +288,10 @@ needed.
 - Postings for very common terms are filtered through a membership join per query; fine at
   research scale, and the obvious place to optimise if corpora grow large.
 - The first query on a large version pays the indexing cost.
-- Scores are only comparable within one query and corpus version.
+- Scores are only comparable within one query and corpus version; fused scores are not comparable
+  with component scores.
+- Hybrid runs its components sequentially; fusion is over each component's top `candidate_k`, so
+  a chunk outside both candidate lists cannot be retrieved by hybrid.
 - Dense search is exact and loads a version's whole matrix (fine to ~10⁶ chunks); dense indexes
   build one at a time per process, in the API process.
 - Long chunks are truncated at the model's 512-token limit when embedded.

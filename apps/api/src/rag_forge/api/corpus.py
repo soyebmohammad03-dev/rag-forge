@@ -39,8 +39,10 @@ from rag_forge.ingestion.extraction import EXTRACTORS
 from rag_forge.ingestion.service import DocumentNotInCorpusError, IngestionService
 from rag_forge.retrieval.dense import DenseIndexNotReadyError, DenseIndexService
 from rag_forge.retrieval.embedding import EmbedderUnavailableError
+from rag_forge.retrieval.hybrid import ComponentMismatchError
 from rag_forge.retrieval.service import (
     CorpusVersionNotFoundError,
+    ForeignResultError,
     RetrievalService,
     StrategyNotAvailableError,
 )
@@ -225,9 +227,17 @@ def retrieve(corpus_id: str, body: RetrievalRequest, request: Request) -> Retrie
         detail = NotImplementedDetail(capability="Retrieval strategy", message=str(exc))
         raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail=detail.model_dump()) from exc
     except DenseIndexNotReadyError as exc:
+        # component names the retriever that cannot run (hybrid never degrades to the other one)
         raise HTTPException(
-            status.HTTP_409_CONFLICT, detail={"state": exc.state, "message": str(exc)}
+            status.HTTP_409_CONFLICT,
+            detail={"state": exc.state, "component": "dense", "message": str(exc)},
         ) from exc
+    except ComponentMismatchError as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail={"state": "mismatch", "message": str(exc)}
+        ) from exc
+    except ForeignResultError as exc:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
     except EmbedderUnavailableError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except IndexIntegrityError as exc:

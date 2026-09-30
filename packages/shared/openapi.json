@@ -983,7 +983,7 @@
   },
   "components": {
     "schemas": {
-      "Bm25Params": {
+      "Bm25Params-Input": {
         "properties": {
           "k1": {
             "type": "number",
@@ -1004,6 +1004,33 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "title": "Bm25Params"
+      },
+      "Bm25Params-Output": {
+        "properties": {
+          "k1": {
+            "type": "number",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "K1",
+            "description": "Term-frequency saturation",
+            "default": 1.2
+          },
+          "b": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "B",
+            "description": "Chunk-length normalisation",
+            "default": 0.75
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "k1",
+          "b"
+        ],
         "title": "Bm25Params"
       },
       "Body_ingest_documents_api_v1_corpora__corpus_id__documents_post": {
@@ -1201,6 +1228,65 @@
           "detail"
         ],
         "title": "ComponentHealth"
+      },
+      "ComponentScore": {
+        "properties": {
+          "strategy": {
+            "$ref": "#/components/schemas/RetrievalStrategy"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank",
+            "description": "Rank in that retriever's candidates; null if absent"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score",
+            "description": "That retriever's own raw score"
+          },
+          "normalized_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Score",
+            "description": "Weighted fusion only: min-max normalised score in 0..1"
+          },
+          "contribution": {
+            "type": "number",
+            "title": "Contribution",
+            "description": "This component's share of the fused score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "strategy",
+          "rank",
+          "score",
+          "normalized_score",
+          "contribution"
+        ],
+        "title": "ComponentScore",
+        "description": "How one component retriever saw a fused chunk. Raw scores are never rescaled here."
       },
       "ComponentState": {
         "type": "string",
@@ -2143,6 +2229,41 @@
         ],
         "title": "FileOutcome"
       },
+      "FusionDetail": {
+        "properties": {
+          "method": {
+            "$ref": "#/components/schemas/FusionMethod"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "Final fused score (the hit's result.score)"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentScore"
+            },
+            "type": "array",
+            "title": "Components"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "method",
+          "score",
+          "components"
+        ],
+        "title": "FusionDetail"
+      },
+      "FusionMethod": {
+        "type": "string",
+        "enum": [
+          "rrf",
+          "weighted"
+        ],
+        "title": "FusionMethod"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2192,6 +2313,105 @@
           "components"
         ],
         "title": "HealthStatus"
+      },
+      "HybridParams-Input": {
+        "properties": {
+          "retrievers": {
+            "items": {
+              "$ref": "#/components/schemas/RetrievalStrategy"
+            },
+            "type": "array",
+            "title": "Retrievers",
+            "description": "Component strategies to fuse"
+          },
+          "fusion": {
+            "$ref": "#/components/schemas/FusionMethod",
+            "default": "rrf"
+          },
+          "rrf_k": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Rrf K",
+            "description": "RRF smoothing constant",
+            "default": 60
+          },
+          "weights": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/RetrievalStrategy"
+            },
+            "type": "object",
+            "title": "Weights",
+            "description": "Weighted fusion only: one weight per component, each 0..1, summing to 1"
+          },
+          "candidate_k": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Candidate K",
+            "description": "Candidates requested from each component",
+            "default": 50
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "HybridParams"
+      },
+      "HybridParams-Output": {
+        "properties": {
+          "retrievers": {
+            "items": {
+              "$ref": "#/components/schemas/RetrievalStrategy"
+            },
+            "type": "array",
+            "title": "Retrievers",
+            "description": "Component strategies to fuse"
+          },
+          "fusion": {
+            "$ref": "#/components/schemas/FusionMethod",
+            "default": "rrf"
+          },
+          "rrf_k": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Rrf K",
+            "description": "RRF smoothing constant",
+            "default": 60
+          },
+          "weights": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/RetrievalStrategy"
+            },
+            "type": "object",
+            "title": "Weights",
+            "description": "Weighted fusion only: one weight per component, each 0..1, summing to 1"
+          },
+          "candidate_k": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Candidate K",
+            "description": "Candidates requested from each component",
+            "default": 50
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "retrievers",
+          "fusion",
+          "rrf_k",
+          "weights",
+          "candidate_k"
+        ],
+        "title": "HybridParams"
       },
       "IngestionFileResult": {
         "properties": {
@@ -2501,6 +2721,73 @@
         ],
         "title": "Query"
       },
+      "RetrievalConfiguration": {
+        "properties": {
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "corpus_version": {
+            "type": "integer",
+            "title": "Corpus Version"
+          },
+          "chunking_hash": {
+            "type": "string",
+            "title": "Chunking Hash"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/RetrievalStrategy"
+          },
+          "top_k": {
+            "type": "integer",
+            "title": "Top K"
+          },
+          "bm25": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Bm25Params-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "embedder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EmbedderSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hybrid": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HybridParams-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "corpus_id",
+          "corpus_version",
+          "chunking_hash",
+          "strategy",
+          "top_k",
+          "bm25",
+          "embedder",
+          "hybrid"
+        ],
+        "title": "RetrievalConfiguration",
+        "description": "Everything that determines a ranked result set, resolved. The unit an experiment varies."
+      },
       "RetrievalEvaluationRequest": {
         "properties": {
           "ranked_ids": {
@@ -2581,6 +2868,17 @@
             },
             "type": "array",
             "title": "Matched Terms"
+          },
+          "fusion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FusionDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hybrid only"
           }
         },
         "additionalProperties": false,
@@ -2591,7 +2889,8 @@
           "filename",
           "media_type",
           "document_version",
-          "matched_terms"
+          "matched_terms",
+          "fusion"
         ],
         "title": "RetrievalHit",
         "description": "One retrieved chunk with everything needed to display and trace it."
@@ -2625,6 +2924,13 @@
           "retriever_config_hash": {
             "type": "string",
             "title": "Retriever Config Hash"
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/RetrievalConfiguration"
+          },
+          "configuration_hash": {
+            "type": "string",
+            "title": "Configuration Hash"
           },
           "index_id": {
             "anyOf": [
@@ -2676,6 +2982,8 @@
           "retriever",
           "retriever_config",
           "retriever_config_hash",
+          "configuration",
+          "configuration_hash",
           "index_id",
           "query_terms",
           "statistics",
@@ -2718,7 +3026,10 @@
             "default": "sparse"
           },
           "bm25": {
-            "$ref": "#/components/schemas/Bm25Params"
+            "$ref": "#/components/schemas/Bm25Params-Input"
+          },
+          "hybrid": {
+            "$ref": "#/components/schemas/HybridParams-Input"
           }
         },
         "additionalProperties": false,

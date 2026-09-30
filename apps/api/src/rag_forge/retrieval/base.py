@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from rag_forge.domain.models import Corpus, RetrievalStrategy
+from rag_forge.domain.models import Corpus, FusionDetail, RetrievalStrategy
 
 
 @dataclass(frozen=True)
@@ -18,6 +18,7 @@ class Candidate:
     chunk_id: str
     score: float
     matched_terms: tuple[str, ...] = ()
+    fusion: FusionDetail | None = None  # set by hybrid retrievers
 
 
 @dataclass(frozen=True)

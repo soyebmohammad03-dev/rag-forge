@@ -36,7 +36,7 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 
 ## Status
 
-**Phase 3, dense retrieval.** What exists and works today:
+**Phase 4, hybrid retrieval.** What exists and works today:
 
 | Area | State |
 |---|---|
@@ -50,9 +50,11 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 | Retrieval contract (`Retriever`) with a strategy registry | Implemented |
 | BM25 lexical retrieval with version-scoped statistics, `POST /api/v1/corpora/{id}/retrieve` | Implemented, deterministic, reproducible per corpus version |
 | Dense retrieval: `BAAI/bge-small-en-v1.5` (pinned, local ONNX), SQLite vector store, exact cosine search | Implemented; explicit index builds with ready/building/missing/stale/failed states |
-| Retrieval Lab UI: BM25, Dense and BM25-vs-Dense comparison, evidence, provenance | Implemented against the real API |
+| Hybrid retrieval: RRF (primary) and weighted min-max fusion, per-component ranks/scores/contributions | Implemented; fixed strategy, no silent fallback |
+| `RetrievalConfiguration` + hash in every response | Implemented (the unit the Arena will vary) |
+| Retrieval Lab UI: BM25, Dense, Hybrid RRF, Hybrid weighted, four-way comparison, fusion explanation | Implemented against the real API |
 | Retrieval metrics: Recall@K, Precision@K, MRR, nDCG@K | Implemented, `POST /api/v1/evaluation/retrieval` |
-| Hybrid retrieval, reranking, router | Not built; unregistered strategies return `501` |
+| Reranking, adaptive router, Arena, generation | Not built; unregistered strategies return `501` |
 | Other product areas (Forge, Router, Evidence, Arena, …) | Scoped, not built |
 
 Numbers on the Overview marked **SAMPLE** (hatched badge) are preview data from
@@ -79,7 +81,7 @@ rag-forge/
 │   │   ├── src/rag_forge/
 │   │   │   ├── domain/       foundational models
 │   │   │   ├── ingestion/    extraction, chunking, ingestion service
-│   │   │   ├── retrieval/    retriever contract, BM25, embeddings, dense index + retriever, service
+│   │   │   ├── retrieval/    retriever contract, BM25, embeddings, dense, fusion, hybrid, service
 │   │   │   ├── evaluation/   retrieval metrics
 │   │   │   ├── provenance/   environment capture
 │   │   │   ├── storage/      store contract, SQLite + migrations, lexical index, vector index, blobs
@@ -102,7 +104,7 @@ rag-forge/
 
 See [docs/architecture.md](docs/architecture.md) for layering,
 [docs/ingestion.md](docs/ingestion.md) for ingestion and versioning,
-[docs/retrieval.md](docs/retrieval.md) for the retrieval contract, BM25 and dense retrieval, and
+[docs/retrieval.md](docs/retrieval.md) for the retrieval contract, BM25, dense and hybrid retrieval, and
 [docs/research/methodology.md](docs/research/methodology.md) for how comparisons will be run.
 
 ## Technology
@@ -158,6 +160,6 @@ The first dense index build downloads the pinned model (~133 MB) into `~/.cache/
 1. ~~**Ingestion and corpus versioning.**~~ Done (Phase 1).
 2. ~~**Lexical retrieval baseline.**~~ Done (Phase 2): BM25 behind the `Retriever` contract; Retrieval Lab.
 3. **Arena v1.** Standard benchmark loaders (e.g. BEIR subsets), recorded runs, measured metrics against the BM25 baseline, Results.
-4. ~~**Dense retrieval.**~~ Done (Phase 3). Next in this track: hybrid fusion and reranking.
-5. **Router v0.** Rule-based policy over query features, recorded decisions, head-to-head against fixed pipelines.
+4. ~~**Dense and hybrid retrieval.**~~ Done (Phases 3–4): dense, RRF and weighted fusion. Next in this track: reranking.
+5. **Router v0.** Rule-based policy over query features that picks a `RetrievalConfiguration` per query, recorded decisions, head-to-head against the fixed BM25/dense/hybrid pipelines.
 6. **Generation and evidence.** Cited answers, claim-level verification, faithfulness.

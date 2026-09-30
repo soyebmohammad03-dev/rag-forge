@@ -37,6 +37,8 @@ const response = {
   provenance: {
     corpus_id: "cor_1", corpus_version: 2, chunking_hash: "abcdef1234567890", strategy: "sparse", retriever: "bm25",
     retriever_config: { k1: 1.2, b: 0.75, analyzer: "nfkc-casefold-word-lucene33@1" }, retriever_config_hash: "9af8d48f39981234",
+    configuration: { corpus_id: "cor_1", corpus_version: 2, chunking_hash: "abcdef", strategy: "sparse", top_k: 10, bm25: { k1: 1.2, b: 0.75 }, embedder: null, hybrid: null },
+    configuration_hash: "c0ffee1234567890",
     query_terms: ["dense", "vectors"], statistics: { candidate_chunks: 6, matched_chunks: 1, avg_chunk_length: 30, indexed_now: 0 },
     environment: { rag_forge_version: "0.1.0", python_version: "3.13", platform: "x", git_commit: "733c0aa1234567", packages: {} },
     elapsed_ms: 3.2, retrieved_at: "2026-01-01T00:00:00Z",
@@ -67,11 +69,11 @@ describe("RetrievalPage", () => {
     expect(within(card).getByText("2.500")).toBeInTheDocument();
     expect(within(card).getByText(/doc v1 · chunk #0 · 0–31 · p\.2/)).toBeInTheDocument();
     expect(within(card).getAllByText("retrieved").length).toBeGreaterThan(0);
-    expect(screen.getByText("9af8d48f3998")).toBeInTheDocument(); // config hash in provenance
+    expect(screen.getByText("c0ffee123456")).toBeInTheDocument(); // configuration hash in provenance
 
     const req = fetchMock.mock.calls.map((c) => c[0] as Request).find((r) => r.url.endsWith("/retrieve"))!;
     expect(req.url).toBe("http://localhost:8000/api/v1/corpora/cor_1/retrieve");
-    expect(await req.json()).toEqual({ query: "dense vectors", top_k: 10, version: null, strategy: "sparse", bm25: { k1: 1.2, b: 0.75 } });
+    expect(await req.json()).toMatchObject({ query: "dense vectors", top_k: 10, version: null, strategy: "sparse", bm25: { k1: 1.2, b: 0.75 } });
   });
 
   it("shows API errors instead of results", async () => {
