@@ -71,14 +71,8 @@ export const AREAS: Area[] = [
     label: "Retrieval Lab",
     group: "Retrieval",
     icon: ScanSearch,
-    status: "planned",
-    summary: "Inspect query transformations, candidates, scores, fusion and reranking.",
-    capabilities: [
-      "Side-by-side candidate lists per retriever",
-      "Rank movement through fusion and reranking",
-      "Score distributions and overlap between strategies",
-    ],
-    contracts: ["RetrievalResult", "RetrievalStrategy"],
+    status: "live",
+    summary: "Query a corpus version with the BM25 baseline; inspect ranked evidence and provenance.",
   },
   {
     slug: "evidence",

@@ -38,23 +38,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/retrieval/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Search */
-        post: operations["search_api_v1_retrieval_search_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/router/decide": {
         parameters: {
             query?: never;
@@ -286,10 +269,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/corpora/{corpus_id}/retrieve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retrieve
+         * @description Rank chunks of one corpus version for a query. Defaults to the current version.
+         */
+        post: operations["retrieve_api_v1_corpora__corpus_id__retrieve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Bm25Params */
+        Bm25Params: {
+            /**
+             * K1
+             * @description Term-frequency saturation
+             * @default 1.2
+             */
+            k1: number;
+            /**
+             * B
+             * @description Chunk-length normalisation
+             * @default 0.75
+             */
+            b: number;
+        };
         /** Body_ingest_documents_api_v1_corpora__corpus_id__documents_post */
         Body_ingest_documents_api_v1_corpora__corpus_id__documents_post: {
             /**
@@ -802,25 +820,83 @@ export interface components {
             /** Metrics */
             metrics: components["schemas"]["Metric"][];
         };
-        /** RetrievalRequest */
-        RetrievalRequest: {
+        /**
+         * RetrievalHit
+         * @description One retrieved chunk with everything needed to display and trace it.
+         */
+        RetrievalHit: {
+            result: components["schemas"]["RetrievalResult"];
+            chunk: components["schemas"]["Chunk"];
+            /** Filename */
+            filename: string;
+            /** Media Type */
+            media_type: string;
+            /** Document Version */
+            document_version: number;
+            /** Matched Terms */
+            matched_terms: string[];
+        };
+        /** RetrievalProvenance */
+        RetrievalProvenance: {
             /** Corpus Id */
             corpus_id: string;
+            /** Corpus Version */
+            corpus_version: number;
+            /** Chunking Hash */
+            chunking_hash: string;
+            strategy: components["schemas"]["RetrievalStrategy"];
+            /** Retriever */
+            retriever: string;
+            /** Retriever Config */
+            retriever_config: {
+                [key: string]: unknown;
+            };
+            /** Retriever Config Hash */
+            retriever_config_hash: string;
+            /** Query Terms */
+            query_terms: string[];
+            /**
+             * Statistics
+             * @description Retriever-specific, e.g. candidate_chunks, avg_chunk_length, indexed_now
+             */
+            statistics: {
+                [key: string]: number;
+            };
+            environment: components["schemas"]["EnvironmentSnapshot"];
+            /** Elapsed Ms */
+            elapsed_ms: number;
+            /**
+             * Retrieved At
+             * Format: date-time
+             */
+            retrieved_at: string;
+        };
+        /** RetrievalRequest */
+        RetrievalRequest: {
             /** Query */
             query: string;
-            /** Strategies */
-            strategies: components["schemas"]["RetrievalStrategy"][];
             /**
              * Top K
              * @default 10
              */
             top_k: number;
+            /**
+             * Version
+             * @description Corpus version; default current
+             */
+            version?: number | null;
+            /** @default sparse */
+            strategy: components["schemas"]["RetrievalStrategy"];
+            bm25?: components["schemas"]["Bm25Params"];
         };
         /** RetrievalResponse */
         RetrievalResponse: {
             query: components["schemas"]["Query"];
-            /** Results */
-            results: components["schemas"]["RetrievalResult"][];
+            /** Hits */
+            hits: components["schemas"]["RetrievalHit"][];
+            provenance: components["schemas"]["RetrievalProvenance"];
+            /** Warnings */
+            warnings: string[];
         };
         /** RetrievalResult */
         RetrievalResult: {
@@ -833,6 +909,8 @@ export interface components {
             chunk_id: string;
             /** Document Id */
             document_id: string;
+            /** Document Version Id */
+            document_version_id: string;
             /** Rank */
             rank: number;
             /** Score */
@@ -960,48 +1038,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnvironmentResponse"];
-                };
-            };
-        };
-    };
-    search_api_v1_retrieval_search_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RetrievalRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RetrievalResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotImplementedDetail"];
                 };
             };
         };
@@ -1515,6 +1551,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retrieve_api_v1_corpora__corpus_id__retrieve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corpus_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetrievalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetrievalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotImplementedDetail"];
                 };
             };
         };

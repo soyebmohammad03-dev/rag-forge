@@ -17,8 +17,6 @@ from rag_forge.domain.models import (
     EnvironmentSnapshot,
     Metric,
     Query,
-    RetrievalResult,
-    RetrievalStrategy,
     RouterDecision,
 )
 from rag_forge.storage.base import CorpusStats
@@ -94,18 +92,6 @@ class ExperimentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     hypothesis: str = ""
     corpus_id: str | None = None
-
-
-class RetrievalRequest(BaseModel):
-    corpus_id: str
-    query: str = Field(min_length=1)
-    strategies: list[RetrievalStrategy] = Field(min_length=1)
-    top_k: int = Field(default=10, gt=0, le=1000)
-
-
-class RetrievalResponse(BaseModel):
-    query: Query
-    results: list[RetrievalResult]
 
 
 class RouterRequest(BaseModel):

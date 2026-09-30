@@ -1,7 +1,7 @@
 "use client";
 
 import type { DocumentSummary } from "@rag-forge/shared";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, ScanSearch } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useState } from "react";
@@ -113,7 +113,15 @@ export function CorpusDetailPage({ corpusId }: { corpusId: string }) {
           </div>
           <p className="mt-1 max-w-2xl text-[13px] text-fg-muted">{corpus.description || "No description."}</p>
         </div>
-        <ChunkingSpec config={corpus.chunking} className="shrink-0" />
+        <div className="flex shrink-0 items-center gap-4">
+          <ChunkingSpec config={corpus.chunking} />
+          <Link
+            href={`/retrieval?corpus=${corpus.id}`}
+            className="inline-flex h-8 items-center gap-2 rounded-md bg-surface-3 px-3 text-[13px] text-fg shadow-[0_0_0_1px_var(--color-line-strong)] transition-colors hover:bg-[#222731]"
+          >
+            <ScanSearch className="size-4 text-signal" /> Search corpus
+          </Link>
+        </div>
       </header>
 
       <section aria-label="Corpus statistics" className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-panel)] bg-line shadow-[var(--shadow-panel)] sm:grid-cols-5">

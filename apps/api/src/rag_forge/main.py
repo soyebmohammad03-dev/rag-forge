@@ -9,8 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from rag_forge import __version__
 from rag_forge.api import corpus, routes
+from rag_forge.domain.models import RetrievalStrategy
 from rag_forge.ingestion.service import IngestionService
+from rag_forge.retrieval.lexical import Bm25Retriever
+from rag_forge.retrieval.service import RetrievalService
 from rag_forge.storage.blobs import BlobStore
+from rag_forge.storage.lexical_index import SqliteLexicalIndex
 from rag_forge.storage.sqlite import SqliteStore
 
 
@@ -21,8 +25,14 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     """
     data_dir = data_dir or Path(os.environ.get("RAG_FORGE_DATA_DIR", "data"))
     app = FastAPI(title="RAG FORGE API", version=__version__)
-    app.state.store = SqliteStore(data_dir / "rag_forge.sqlite3")
-    app.state.ingestion = IngestionService(app.state.store, BlobStore(data_dir / "blobs"))
+    store = SqliteStore(data_dir / "rag_forge.sqlite3")
+    lexical = SqliteLexicalIndex(store)
+    app.state.store = store
+    app.state.ingestion = IngestionService(store, BlobStore(data_dir / "blobs"))
+    # New strategies register here; the service, API and UI stay unchanged.
+    app.state.retrieval = RetrievalService(
+        store, {RetrievalStrategy.SPARSE: lambda req: Bm25Retriever(lexical, req.bm25)}
+    )
     app.state.started_at = datetime.now(UTC)
     origins = os.environ.get("RAG_FORGE_CORS_ORIGINS", "http://localhost:3000").split(",")
     app.add_middleware(

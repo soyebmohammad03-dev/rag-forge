@@ -1,4 +1,4 @@
-"""Corpus management, ingestion and inspection routes."""
+"""Corpus management, ingestion, inspection and retrieval routes."""
 
 from __future__ import annotations
 
@@ -13,11 +13,23 @@ from rag_forge.api.schemas import (
     CorpusSummary,
     DocumentDetail,
     DocumentSummary,
+    NotImplementedDetail,
     SupportedFormat,
 )
-from rag_forge.domain.models import Corpus, CorpusVersion, IngestionRecord
+from rag_forge.domain.models import (
+    Corpus,
+    CorpusVersion,
+    IngestionRecord,
+    RetrievalRequest,
+    RetrievalResponse,
+)
 from rag_forge.ingestion.extraction import EXTRACTORS
 from rag_forge.ingestion.service import DocumentNotInCorpusError, IngestionService
+from rag_forge.retrieval.service import (
+    CorpusVersionNotFoundError,
+    RetrievalService,
+    StrategyNotAvailableError,
+)
 from rag_forge.storage.base import CorpusStore, VersionChange
 
 router = APIRouter(prefix="/api/v1", tags=["corpus"])
@@ -178,3 +190,22 @@ def version_changes(corpus_id: str, version: int, request: Request) -> list[Vers
 )
 def list_ingestions(corpus_id: str, request: Request) -> list[IngestionRecord]:
     return _store(request).list_ingestions(_corpus(request, corpus_id).id)
+
+
+@router.post(
+    "/corpora/{corpus_id}/retrieve",
+    response_model=RetrievalResponse,
+    tags=["retrieval"],
+    responses={501: {"model": NotImplementedDetail}},
+)
+def retrieve(corpus_id: str, body: RetrievalRequest, request: Request) -> RetrievalResponse:
+    """Rank chunks of one corpus version for a query. Defaults to the current version."""
+    corpus = _corpus(request, corpus_id)
+    service: RetrievalService = request.app.state.retrieval
+    try:
+        return service.retrieve(corpus.id, body)
+    except CorpusVersionNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except StrategyNotAvailableError as exc:
+        detail = NotImplementedDetail(capability="Retrieval strategy", message=str(exc))
+        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail=detail.model_dump()) from exc

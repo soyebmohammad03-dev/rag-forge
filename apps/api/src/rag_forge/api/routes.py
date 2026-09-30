@@ -17,8 +17,6 @@ from rag_forge.api.schemas import (
     NotImplementedDetail,
     RetrievalEvaluationRequest,
     RetrievalEvaluationResponse,
-    RetrievalRequest,
-    RetrievalResponse,
     RouterRequest,
     RouterResponse,
 )
@@ -84,17 +82,7 @@ def environment() -> EnvironmentResponse:
     return EnvironmentResponse(environment=capture_environment())
 
 
-# --- Retrieval & routing -------------------------------------------------------
-
-
-@router.post(
-    "/retrieval/search",
-    response_model=RetrievalResponse,
-    tags=["retrieval"],
-    responses=NOT_IMPLEMENTED,
-)
-def search(body: RetrievalRequest) -> RetrievalResponse:
-    _not_implemented("Retrieval")
+# --- Routing -------------------------------------------------------
 
 
 @router.post(

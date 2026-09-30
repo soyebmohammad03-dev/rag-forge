@@ -19,19 +19,9 @@ def test_experiment_rejects_unknown_corpus(client: TestClient) -> None:
 
 
 def test_unimplemented_capabilities_return_501_not_fake_data(client: TestClient) -> None:
-    c = client
-    r = c.post(
-        "/api/v1/retrieval/search",
-        json={"corpus_id": "c", "query": "q", "strategies": ["dense"]},
-    )
+    r = client.post("/api/v1/router/decide", json={"corpus_id": "c", "query": "q", "policy": "p"})
     assert r.status_code == 501
-    assert r.json()["detail"]["capability"] == "Retrieval"
-    assert (
-        c.post(
-            "/api/v1/router/decide", json={"corpus_id": "c", "query": "q", "policy": "p"}
-        ).status_code
-        == 501
-    )
+    assert r.json()["detail"]["capability"] == "Router policy"
 
 
 def test_evaluation_endpoint_measures(client: TestClient) -> None:

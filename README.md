@@ -36,7 +36,7 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 
 ## Status
 
-**Phase 1, ingestion and corpus versioning.** What exists and works today:
+**Phase 2, lexical retrieval.** What exists and works today:
 
 | Area | State |
 |---|---|
@@ -47,9 +47,12 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 | Chunking: `recursive` (boundary-aware) and `fixed` baseline, exact offsets | Implemented, configurable per corpus |
 | Ingestion provenance (parser, chunking hash, hashes, git commit, timings) | Implemented, one immutable record per operation |
 | Corpus workspace UI (list, create, upload, documents, versions, chunks, provenance) | Implemented against the real API |
+| Retrieval contract (`Retriever`) with a strategy registry | Implemented |
+| BM25 lexical retrieval with version-scoped statistics, `POST /api/v1/corpora/{id}/retrieve` | Implemented, deterministic, reproducible per corpus version |
+| Retrieval Lab UI (query, version, top-k, BM25 params, evidence, provenance) | Implemented against the real API |
 | Retrieval metrics: Recall@K, Precision@K, MRR, nDCG@K | Implemented, `POST /api/v1/evaluation/retrieval` |
-| Retrieval, router endpoints | Contract only; return `501` |
-| Other product areas (Forge, Router, Retrieval Lab, Evidence, Arena, …) | Scoped, not built |
+| Dense / hybrid retrieval, reranking, router | Not built; unregistered strategies return `501` |
+| Other product areas (Forge, Router, Evidence, Arena, …) | Scoped, not built |
 
 Numbers on the Overview marked **SAMPLE** (hatched badge) are preview data from
 `apps/web/src/sample/`. They were not measured. Everything marked **LIVE** comes from the API.
@@ -75,9 +78,10 @@ rag-forge/
 │   │   ├── src/rag_forge/
 │   │   │   ├── domain/       foundational models
 │   │   │   ├── ingestion/    extraction, chunking, ingestion service
+│   │   │   ├── retrieval/    retriever contract, analyzer, BM25, retrieval service
 │   │   │   ├── evaluation/   retrieval metrics
 │   │   │   ├── provenance/   environment capture
-│   │   │   ├── storage/      store contract, SQLite store, blob store
+│   │   │   ├── storage/      store contract, SQLite store + migrations, lexical index, blobs
 │   │   │   ├── api/          HTTP schemas + routes (system, corpus)
 │   │   │   └── main.py       app factory
 │   │   └── tests/
@@ -85,7 +89,7 @@ rag-forge/
 │       └── src/
 │           ├── app/          routes only; thin
 │           ├── components/   ui/ (design system) · shell/ (sidebar, command palette)
-│           ├── features/     overview/ · corpus/ · system/ · planned/
+│           ├── features/     overview/ · corpus/ · retrieval/ · system/ · planned/
 │           ├── lib/          typed API client, area registry
 │           └── sample/       preview data, isolated
 ├── packages/shared/          API contracts generated from OpenAPI
@@ -96,7 +100,8 @@ rag-forge/
 ```
 
 See [docs/architecture.md](docs/architecture.md) for layering,
-[docs/ingestion.md](docs/ingestion.md) for ingestion and versioning, and
+[docs/ingestion.md](docs/ingestion.md) for ingestion and versioning,
+[docs/retrieval.md](docs/retrieval.md) for the retrieval contract and BM25 baseline, and
 [docs/research/methodology.md](docs/research/methodology.md) for how comparisons will be run.
 
 ## Technology
@@ -147,7 +152,8 @@ Configuration: `NEXT_PUBLIC_API_URL` (web, default `http://localhost:8000`),
 ## Roadmap
 
 1. ~~**Ingestion and corpus versioning.**~~ Done (Phase 1).
-2. **Baseline retrievers.** BM25 and one dense retriever behind a common interface; Retrieval Lab.
-3. **Arena v1.** Standard benchmark loaders (e.g. BEIR subsets), runs, measured metrics, Results.
-4. **Router v0.** Rule-based policy over query features, recorded decisions, head-to-head against fixed pipelines.
-5. **Generation and evidence.** Cited answers, claim-level verification, faithfulness.
+2. ~~**Lexical retrieval baseline.**~~ Done (Phase 2): BM25 behind the `Retriever` contract; Retrieval Lab.
+3. **Arena v1.** Standard benchmark loaders (e.g. BEIR subsets), recorded runs, measured metrics against the BM25 baseline, Results.
+4. **Dense and hybrid retrieval.** A dense `Retriever` with an embedded vector index; fusion; reranking.
+5. **Router v0.** Rule-based policy over query features, recorded decisions, head-to-head against fixed pipelines.
+6. **Generation and evidence.** Cited answers, claim-level verification, faithfulness.

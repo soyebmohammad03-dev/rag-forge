@@ -220,12 +220,67 @@ class RetrievalStrategy(StrEnum):
 class RetrievalResult(Model):
     query_id: str
     strategy: RetrievalStrategy
-    retriever: str  # concrete retriever identifier, e.g. "bm25:k1=1.2,b=0.75"
+    retriever: str  # concrete retriever identifier, e.g. "bm25"
     chunk_id: str
     document_id: str
+    document_version_id: str
     rank: int = Field(ge=1)
     score: float
     origin: ContentOrigin = ContentOrigin.RETRIEVED
+
+
+class Bm25Params(Model):
+    k1: float = Field(default=1.2, ge=0, le=3, description="Term-frequency saturation")
+    b: float = Field(default=0.75, ge=0, le=1, description="Chunk-length normalisation")
+
+
+class RetrievalRequest(Model):
+    query: str = Field(min_length=1, max_length=2000)
+    top_k: int = Field(default=10, ge=1, le=100)
+    version: int | None = Field(default=None, ge=0, description="Corpus version; default current")
+    strategy: RetrievalStrategy = RetrievalStrategy.SPARSE
+    bm25: Bm25Params = Field(default_factory=Bm25Params)
+
+    @model_validator(mode="after")
+    def _query_not_blank(self) -> RetrievalRequest:
+        if not self.query.strip():
+            raise ValueError("query must not be blank")
+        return self
+
+
+class RetrievalHit(Model):
+    """One retrieved chunk with everything needed to display and trace it."""
+
+    result: RetrievalResult
+    chunk: Chunk
+    filename: str
+    media_type: str
+    document_version: int
+    matched_terms: list[str]
+
+
+class RetrievalProvenance(Model):
+    corpus_id: str
+    corpus_version: int
+    chunking_hash: str
+    strategy: RetrievalStrategy
+    retriever: str
+    retriever_config: dict[str, Any]
+    retriever_config_hash: str
+    query_terms: list[str]
+    statistics: dict[str, float] = Field(
+        description="Retriever-specific, e.g. candidate_chunks, avg_chunk_length, indexed_now"
+    )
+    environment: EnvironmentSnapshot
+    elapsed_ms: float
+    retrieved_at: datetime = Field(default_factory=utcnow)
+
+
+class RetrievalResponse(Model):
+    query: Query
+    hits: list[RetrievalHit]
+    provenance: RetrievalProvenance
+    warnings: list[str] = Field(default_factory=list)
 
 
 class Evidence(Model):

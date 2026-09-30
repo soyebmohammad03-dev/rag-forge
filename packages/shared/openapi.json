@@ -47,57 +47,6 @@
         }
       }
     },
-    "/api/v1/retrieval/search": {
-      "post": {
-        "tags": [
-          "retrieval"
-        ],
-        "summary": "Search",
-        "operationId": "search_api_v1_retrieval_search_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RetrievalRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RetrievalResponse"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotImplementedDetail"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/router/decide": {
       "post": {
         "tags": [
@@ -842,10 +791,97 @@
           }
         }
       }
+    },
+    "/api/v1/corpora/{corpus_id}/retrieve": {
+      "post": {
+        "tags": [
+          "corpus",
+          "retrieval"
+        ],
+        "summary": "Retrieve",
+        "description": "Rank chunks of one corpus version for a query. Defaults to the current version.",
+        "operationId": "retrieve_api_v1_corpora__corpus_id__retrieve_post",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetrievalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotImplementedDetail"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Bm25Params": {
+        "properties": {
+          "k1": {
+            "type": "number",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "K1",
+            "description": "Term-frequency saturation",
+            "default": 1.2
+          },
+          "b": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "B",
+            "description": "Chunk-length normalisation",
+            "default": 0.75
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Bm25Params"
+      },
       "Body_ingest_documents_api_v1_corpora__corpus_id__documents_post": {
         "properties": {
           "files": {
@@ -2098,38 +2134,163 @@
         ],
         "title": "RetrievalEvaluationResponse"
       },
-      "RetrievalRequest": {
+      "RetrievalHit": {
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/RetrievalResult"
+          },
+          "chunk": {
+            "$ref": "#/components/schemas/Chunk"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "document_version": {
+            "type": "integer",
+            "title": "Document Version"
+          },
+          "matched_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Matched Terms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "result",
+          "chunk",
+          "filename",
+          "media_type",
+          "document_version",
+          "matched_terms"
+        ],
+        "title": "RetrievalHit",
+        "description": "One retrieved chunk with everything needed to display and trace it."
+      },
+      "RetrievalProvenance": {
         "properties": {
           "corpus_id": {
             "type": "string",
             "title": "Corpus Id"
           },
-          "query": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Query"
+          "corpus_version": {
+            "type": "integer",
+            "title": "Corpus Version"
           },
-          "strategies": {
+          "chunking_hash": {
+            "type": "string",
+            "title": "Chunking Hash"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/RetrievalStrategy"
+          },
+          "retriever": {
+            "type": "string",
+            "title": "Retriever"
+          },
+          "retriever_config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Retriever Config"
+          },
+          "retriever_config_hash": {
+            "type": "string",
+            "title": "Retriever Config Hash"
+          },
+          "query_terms": {
             "items": {
-              "$ref": "#/components/schemas/RetrievalStrategy"
+              "type": "string"
             },
             "type": "array",
-            "minItems": 1,
-            "title": "Strategies"
+            "title": "Query Terms"
           },
-          "top_k": {
-            "type": "integer",
-            "maximum": 1000.0,
-            "exclusiveMinimum": 0.0,
-            "title": "Top K",
-            "default": 10
+          "statistics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Statistics",
+            "description": "Retriever-specific, e.g. candidate_chunks, avg_chunk_length, indexed_now"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/EnvironmentSnapshot"
+          },
+          "elapsed_ms": {
+            "type": "number",
+            "title": "Elapsed Ms"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Retrieved At"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "corpus_id",
-          "query",
-          "strategies"
+          "corpus_version",
+          "chunking_hash",
+          "strategy",
+          "retriever",
+          "retriever_config",
+          "retriever_config_hash",
+          "query_terms",
+          "statistics",
+          "environment",
+          "elapsed_ms",
+          "retrieved_at"
+        ],
+        "title": "RetrievalProvenance"
+      },
+      "RetrievalRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "default": 10
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version",
+            "description": "Corpus version; default current"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/RetrievalStrategy",
+            "default": "sparse"
+          },
+          "bm25": {
+            "$ref": "#/components/schemas/Bm25Params"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query"
         ],
         "title": "RetrievalRequest"
       },
@@ -2138,18 +2299,31 @@
           "query": {
             "$ref": "#/components/schemas/Query"
           },
-          "results": {
+          "hits": {
             "items": {
-              "$ref": "#/components/schemas/RetrievalResult"
+              "$ref": "#/components/schemas/RetrievalHit"
             },
             "type": "array",
-            "title": "Results"
+            "title": "Hits"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/RetrievalProvenance"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "query",
-          "results"
+          "hits",
+          "provenance",
+          "warnings"
         ],
         "title": "RetrievalResponse"
       },
@@ -2174,6 +2348,10 @@
             "type": "string",
             "title": "Document Id"
           },
+          "document_version_id": {
+            "type": "string",
+            "title": "Document Version Id"
+          },
           "rank": {
             "type": "integer",
             "minimum": 1.0,
@@ -2196,6 +2374,7 @@
           "retriever",
           "chunk_id",
           "document_id",
+          "document_version_id",
           "rank",
           "score",
           "origin"

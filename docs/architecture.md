@@ -24,7 +24,7 @@ Packages exist only when they contain code. Current and planned:
 | `provenance` | Environment capture, provenance records | Environment capture present |
 | `storage` | `CorpusStore` contract, SQLite store, content-addressed blob store | Present |
 | `ingestion` | Extractors, chunkers, ingestion service, versioning | Present (see [ingestion.md](ingestion.md)) |
-| `retrieval` | Retriever implementations behind one interface; fusion; reranking | Phase 2 |
+| `retrieval` | `Retriever` contract, analyzer, BM25, retrieval service; later dense, fusion, reranking | BM25 present (see [retrieval.md](retrieval.md)) |
 | `experiments` | Run orchestration, ablation grids | Phase 3 |
 | `router` | Query analysis, policies, `RouterDecision` recording | Phase 4 |
 | `knowledge` | Entities, relations, graph retrieval support | Later |
@@ -37,7 +37,8 @@ Dependency direction: `api → services → domain`. `domain` imports nothing fr
 | Concern | Now | Next |
 |---|---|---|
 | Relational metadata (corpora, documents, versions, chunks, ingestions, experiments) | SQLite (`storage/sqlite.py`) | Postgres behind the same `CorpusStore` contract |
-| Vectors | none | Pluggable index interface; start with an embedded index, keep the backend swappable |
+| Lexical index | SQLite inverted index (`storage/lexical_index.py`), version-scoped BM25 statistics | Same contract on Postgres |
+| Vectors | none | A dense `Retriever` with an embedded index; backend swappable |
 | Original document bytes | Content-addressed files `data/blobs/ab/abcd…` | Object storage with the same addressing |
 | Provenance | Model defined | Stored with each run, immutable |
 
@@ -51,7 +52,7 @@ Dependency direction: `api → services → domain`. `domain` imports nothing fr
 
 ## Frontend structure
 
-- `app/`: routing only. Built areas have their own routes (`/corpus`, `/corpus/[corpusId]`,
+- `app/`: routing only. Built areas have their own routes (`/corpus`, `/corpus/[corpusId]`, `/retrieval`,
   `/system`); planned areas share one dynamic route (`[area]`) driven by `lib/areas.ts`.
 - `components/ui/`: the design system (panel, button, badge, tabs, tooltip, dialog/drawer,
   data table, metric card, sparkline, chart theme, graph node, pipeline steps, states).

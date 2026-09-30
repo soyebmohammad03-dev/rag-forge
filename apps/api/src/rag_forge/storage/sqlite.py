@@ -8,6 +8,7 @@ never be updated or deleted.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -25,8 +26,6 @@ from rag_forge.domain.models import (
     IngestionRecord,
 )
 from rag_forge.storage.base import ConcurrentModificationError, CorpusStats, VersionChange
-
-SCHEMA_VERSION = 1
 
 _APPEND_ONLY = (
     "document_versions",
@@ -77,22 +76,47 @@ CREATE TRIGGER IF NOT EXISTS {t}_no_delete BEFORE DELETE ON {t}
 )
 
 
+# Forward-only migrations: MIGRATIONS[n] upgrades a database from schema n - 1 to n.
+# Never edit a released migration; add a new one.
+MIGRATIONS: dict[int, str] = {
+    1: SCHEMA,
+    2: """
+-- Lexical retrieval index (derived from chunks; rebuildable, never the source of truth).
+-- doc_key is an INTEGER PRIMARY KEY so it survives VACUUM, unlike implicit rowids.
+CREATE TABLE lexical_terms (id INTEGER PRIMARY KEY, term TEXT NOT NULL UNIQUE);
+CREATE TABLE lexical_docs (
+  doc_key INTEGER PRIMARY KEY, analyzer TEXT NOT NULL,
+  chunk_id TEXT NOT NULL REFERENCES chunks(id), length INTEGER NOT NULL,
+  UNIQUE (analyzer, chunk_id));
+CREATE TABLE lexical_postings (
+  term_id INTEGER NOT NULL REFERENCES lexical_terms(id),
+  doc_key INTEGER NOT NULL REFERENCES lexical_docs(doc_key), tf INTEGER NOT NULL,
+  PRIMARY KEY (term_id, doc_key)) WITHOUT ROWID;
+""",
+}
+SCHEMA_VERSION = max(MIGRATIONS)
+
+
 class SqliteStore:
     kind = "sqlite"
 
     def __init__(self, path: Path) -> None:
         self.path = path.resolve()
         path.parent.mkdir(parents=True, exist_ok=True)
-        with self._tx() as db:
+        with self.transaction() as db:
             db.execute("PRAGMA journal_mode=WAL")
             found = db.execute("PRAGMA user_version").fetchone()[0]
-            if found not in (0, SCHEMA_VERSION):
-                raise RuntimeError(f"{path}: schema v{found}, expected v{SCHEMA_VERSION}")
-            db.executescript(SCHEMA)
-            db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+            if found > SCHEMA_VERSION:
+                raise RuntimeError(f"{path}: schema v{found} is newer than v{SCHEMA_VERSION}")
+        for version in range(found + 1, SCHEMA_VERSION + 1):
+            with self.transaction() as db:
+                # One explicit transaction per step: a failed migration leaves the prior schema.
+                db.executescript(
+                    f"BEGIN;\n{MIGRATIONS[version]}\nPRAGMA user_version={version};\nCOMMIT;"
+                )
 
     @contextmanager
-    def _tx(self) -> Iterator[sqlite3.Connection]:
+    def transaction(self) -> Iterator[sqlite3.Connection]:
         # ponytail: one connection per operation; pool connections if profiling says so.
         db = sqlite3.connect(self.path, timeout=10)
         db.execute("PRAGMA foreign_keys=ON")
@@ -105,7 +129,7 @@ class SqliteStore:
     # --- corpora ---------------------------------------------------------------
 
     def add_corpus(self, corpus: Corpus) -> Corpus:
-        with self._tx() as db:
+        with self.transaction() as db:
             db.execute(
                 "INSERT INTO corpora (id, name, data) VALUES (?, ?, ?)",
                 (corpus.id, corpus.name, corpus.model_dump_json()),
@@ -126,23 +150,23 @@ class SqliteStore:
         return corpus
 
     def list_corpora(self) -> list[Corpus]:
-        with self._tx() as db:
+        with self.transaction() as db:
             rows = db.execute("SELECT data FROM corpora ORDER BY rowid DESC").fetchall()
         return [Corpus.model_validate_json(r[0]) for r in rows]
 
     def get_corpus(self, corpus_id: str) -> Corpus | None:
-        with self._tx() as db:
+        with self.transaction() as db:
             row = db.execute("SELECT data FROM corpora WHERE id = ?", (corpus_id,)).fetchone()
         return Corpus.model_validate_json(row[0]) if row else None
 
     def corpus_name_taken(self, name: str) -> bool:
-        with self._tx() as db:
+        with self.transaction() as db:
             return (
                 db.execute("SELECT 1 FROM corpora WHERE name = ?", (name,)).fetchone() is not None
             )
 
     def corpus_stats(self, corpus: Corpus) -> CorpusStats:
-        with self._tx() as db:
+        with self.transaction() as db:
             docs, size, chars = db.execute(
                 """SELECT COUNT(*), COALESCE(SUM(json_extract(dv.data, '$.byte_size')), 0),
                           COALESCE(SUM(json_extract(dv.data, '$.text_chars')), 0)
@@ -173,7 +197,7 @@ class SqliteStore:
 
     def members(self, corpus_id: str, version: int) -> dict[str, DocumentVersion]:
         """document_id -> the document version contained in that corpus version."""
-        with self._tx() as db:
+        with self.transaction() as db:
             rows = db.execute(
                 """SELECT m.document_id, dv.data FROM corpus_version_members m
                    JOIN document_versions dv ON dv.id = m.document_version_id
@@ -184,7 +208,7 @@ class SqliteStore:
         return {r[0]: DocumentVersion.model_validate_json(r[1]) for r in rows}
 
     def documents_by_filename(self, corpus_id: str) -> dict[str, Document]:
-        with self._tx() as db:
+        with self.transaction() as db:
             rows = db.execute(
                 "SELECT data FROM documents WHERE corpus_id = ?", (corpus_id,)
             ).fetchall()
@@ -192,12 +216,12 @@ class SqliteStore:
         return {d.filename: d for d in docs}
 
     def get_document(self, document_id: str) -> Document | None:
-        with self._tx() as db:
+        with self.transaction() as db:
             row = db.execute("SELECT data FROM documents WHERE id = ?", (document_id,)).fetchone()
         return Document.model_validate_json(row[0]) if row else None
 
     def document_versions(self, document_id: str) -> list[DocumentVersion]:
-        with self._tx() as db:
+        with self.transaction() as db:
             rows = db.execute(
                 "SELECT data FROM document_versions WHERE document_id = ? ORDER BY version",
                 (document_id,),
@@ -205,23 +229,31 @@ class SqliteStore:
         return [DocumentVersion.model_validate_json(r[0]) for r in rows]
 
     def get_document_version(self, version_id: str) -> DocumentVersion | None:
-        with self._tx() as db:
+        with self.transaction() as db:
             row = db.execute(
                 "SELECT data FROM document_versions WHERE id = ?", (version_id,)
             ).fetchone()
         return DocumentVersion.model_validate_json(row[0]) if row else None
 
     def document_text(self, version_id: str) -> str | None:
-        with self._tx() as db:
+        with self.transaction() as db:
             row = db.execute(
                 "SELECT text FROM document_texts WHERE document_version_id = ?", (version_id,)
             ).fetchone()
         return row[0] if row else None
 
+    def get_chunks(self, chunk_ids: list[str]) -> dict[str, Chunk]:
+        with self.transaction() as db:
+            rows = db.execute(
+                "SELECT data FROM chunks WHERE id IN (SELECT value FROM json_each(?))",
+                (json.dumps(chunk_ids),),
+            ).fetchall()
+        return {c.id: c for c in (Chunk.model_validate_json(r[0]) for r in rows)}
+
     def chunks(
         self, version_id: str, chunking_hash: str, offset: int = 0, limit: int = 100
     ) -> tuple[list[Chunk], int]:
-        with self._tx() as db:
+        with self.transaction() as db:
             where = "document_version_id = ? AND chunking_hash = ?"
             (total,) = db.execute(
                 f"SELECT COUNT(*) FROM chunks WHERE {where}", (version_id, chunking_hash)
@@ -245,7 +277,7 @@ class SqliteStore:
     ) -> Corpus:
         """Atomically write a new corpus version. `members` maps document_id -> version_id."""
         updated = corpus.model_copy(update={"version": version.version})
-        with self._tx() as db:
+        with self.transaction() as db:
             db.executemany(
                 "INSERT INTO documents (id, corpus_id, filename, data) VALUES (?, ?, ?, ?)",
                 [(d.id, d.corpus_id, d.filename, d.model_dump_json()) for d in new_documents],
@@ -285,7 +317,7 @@ class SqliteStore:
         return updated
 
     def add_ingestion(self, record: IngestionRecord) -> None:
-        with self._tx() as db:
+        with self.transaction() as db:
             self._insert_ingestion(db, record)
 
     @staticmethod
@@ -296,7 +328,7 @@ class SqliteStore:
         )
 
     def list_ingestions(self, corpus_id: str) -> list[IngestionRecord]:
-        with self._tx() as db:
+        with self.transaction() as db:
             rows = db.execute(
                 "SELECT data FROM ingestions WHERE corpus_id = ? ORDER BY started_at DESC",
                 (corpus_id,),
@@ -304,7 +336,7 @@ class SqliteStore:
         return [IngestionRecord.model_validate_json(r[0]) for r in rows]
 
     def list_versions(self, corpus_id: str) -> list[CorpusVersion]:
-        with self._tx() as db:
+        with self.transaction() as db:
             rows = db.execute(
                 "SELECT data FROM corpus_versions WHERE corpus_id = ? ORDER BY version DESC",
                 (corpus_id,),
@@ -338,7 +370,7 @@ class SqliteStore:
     # --- experiments -------------------------------------------------------------
 
     def add_experiment(self, experiment: Experiment) -> Experiment:
-        with self._tx() as db:
+        with self.transaction() as db:
             db.execute(
                 "INSERT INTO experiments VALUES (?, ?, ?)",
                 (experiment.id, experiment.created_at.isoformat(), experiment.model_dump_json()),
@@ -346,11 +378,11 @@ class SqliteStore:
         return experiment
 
     def list_experiments(self) -> list[Experiment]:
-        with self._tx() as db:
+        with self.transaction() as db:
             rows = db.execute("SELECT data FROM experiments ORDER BY created_at DESC").fetchall()
         return [Experiment.model_validate_json(r[0]) for r in rows]
 
     def list_runs(self) -> list[ExperimentRun]:
-        with self._tx() as db:
+        with self.transaction() as db:
             rows = db.execute("SELECT data FROM runs").fetchall()
         return [ExperimentRun.model_validate_json(r[0]) for r in rows]
