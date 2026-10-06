@@ -70,17 +70,11 @@ export const AREAS: Area[] = [
   },
   {
     slug: "evidence",
-    label: "Evidence",
+    label: "Evidence Lab",
     group: "Retrieval",
     icon: Microscope,
-    status: "planned",
-    summary: "Trace every generated claim to the evidence that supports or contradicts it.",
-    capabilities: [
-      "Claim-level support: supported, contradicted, unverified",
-      "Span-level highlighting in source chunks",
-      "Clear separation of retrieved, inferred and generated content",
-    ],
-    contracts: ["Claim", "Evidence", "ContentOrigin"],
+    status: "live",
+    summary: "Generate an answer from selected evidence only and trace every claim to the passages that support it.",
   },
   {
     slug: "arena",

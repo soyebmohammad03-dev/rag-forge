@@ -27,17 +27,17 @@ const MID = 118;
 const H = 40;
 
 const NODES: Node[] = [
-  { id: "query", label: "Query", sub: "text + meta", x: 8, y: MID, state: "contract", detail: "The user question and its metadata become a Query with a stable id; everything downstream references it." },
-  { id: "analyze", label: "Analyze", sub: "features", x: 140, y: MID, state: "planned", detail: "Extract query features: length, entities, temporal cues, comparison intent, expected hop count." },
-  { id: "route", label: "Route", sub: "policy", x: 272, y: MID, color: "var(--color-signal)", state: "contract", detail: "A router policy maps features to a weighted set of strategies and records a RouterDecision with its rationale." },
-  { id: "sparse", label: "BM25", sub: "sparse", x: 432, y: 16, color: "var(--color-s-sparse)", state: "contract", detail: "Lexical retrieval. Strong on exact terms, identifiers and rare words." },
-  { id: "dense", label: "Dense", sub: "vector", x: 432, y: 84, color: "var(--color-s-dense)", state: "contract", detail: "Embedding similarity. Strong on paraphrase and semantic matches." },
+  { id: "query", label: "Query", sub: "text + meta", x: 8, y: MID, state: "implemented", detail: "The user question and its metadata become a Query with a stable id; everything downstream references it." },
+  { id: "analyze", label: "Analyze", sub: "features", x: 140, y: MID, state: "implemented", detail: "Extract query features: length, entities, temporal cues, comparison intent, expected hop count." },
+  { id: "route", label: "Route", sub: "policy", x: 272, y: MID, color: "var(--color-signal)", state: "implemented", detail: "A router policy maps features to a weighted set of strategies and records a RouterDecision with its rationale." },
+  { id: "sparse", label: "BM25", sub: "sparse", x: 432, y: 16, color: "var(--color-s-sparse)", state: "implemented", detail: "Lexical retrieval. Strong on exact terms, identifiers and rare words." },
+  { id: "dense", label: "Dense", sub: "vector", x: 432, y: 84, color: "var(--color-s-dense)", state: "implemented", detail: "Embedding similarity. Strong on paraphrase and semantic matches." },
   { id: "metadata", label: "Metadata", sub: "filters", x: 432, y: 152, color: "var(--color-s-metadata)", state: "contract", detail: "Structured filters on document metadata: dates, sources, types." },
   { id: "graph", label: "Graph", sub: "entities", x: 432, y: 220, color: "var(--color-s-graph)", state: "contract", detail: "Traverse entity and relation links to reach evidence that no single chunk contains." },
-  { id: "fuse", label: "Fuse", sub: "RRF", x: 592, y: MID, color: "var(--color-s-hybrid)", state: "planned", detail: "Merge candidate lists, e.g. reciprocal rank fusion, keeping each candidate's per-retriever rank." },
-  { id: "rerank", label: "Rerank", sub: "cross-enc", x: 724, y: MID, color: "var(--color-s-rerank)", state: "planned", detail: "Re-score fused candidates with a stronger, slower model; rank movement is recorded." },
+  { id: "fuse", label: "Fuse", sub: "RRF", x: 592, y: MID, color: "var(--color-s-hybrid)", state: "implemented", detail: "Merge candidate lists, e.g. reciprocal rank fusion, keeping each candidate's per-retriever rank." },
+  { id: "rerank", label: "Rerank", sub: "cross-enc", x: 724, y: MID, color: "var(--color-s-rerank)", state: "implemented", detail: "Re-score fused candidates with a stronger, slower model; rank movement is recorded." },
   { id: "verify", label: "Verify", sub: "sufficiency", x: 856, y: MID, state: "planned", detail: "Check that evidence can support an answer. If not, loop back to Route for another hop." },
-  { id: "generate", label: "Generate", sub: "cited", x: 988, y: MID, color: "var(--color-trace)", state: "planned", detail: "Produce an answer whose claims each cite retrieved evidence spans." },
+  { id: "generate", label: "Generate", sub: "grounded", x: 988, y: MID, color: "var(--color-trace)", state: "implemented", detail: "Generate from selected evidence only, then measure each claim's support by that evidence (Evidence Lab)." },
 ];
 
 const byId = Object.fromEntries(NODES.map((n) => [n.id, n]));

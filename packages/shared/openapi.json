@@ -99,6 +99,27 @@
         }
       }
     },
+    "/api/v1/rag/components": {
+      "get": {
+        "tags": [
+          "rag"
+        ],
+        "summary": "Rag Components",
+        "operationId": "rag_components_api_v1_rag_components_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RagComponents"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/experiments": {
       "get": {
         "tags": [
@@ -857,6 +878,70 @@
         }
       }
     },
+    "/api/v1/corpora/{corpus_id}/answer": {
+      "post": {
+        "tags": [
+          "corpus",
+          "rag"
+        ],
+        "summary": "Answer",
+        "description": "Answer a query from one corpus version with cited, claim-level grounded evidence.\n\nRuns retrieval exactly as /retrieve does (manual or adaptive), selects evidence, assembles\nthe context, generates, extracts claims and measures their grounding. With\n`generation: null` it stops after context assembly. Every failure is an error response:\nan answer is never returned with its grounding missing.",
+        "operationId": "answer_api_v1_corpora__corpus_id__answer_post",
+        "parameters": [
+          {
+            "name": "corpus_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Corpus Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RagRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RagResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotImplementedDetail"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/corpora/{corpus_id}/dense-index": {
       "get": {
         "tags": [
@@ -984,6 +1069,27 @@
   },
   "components": {
     "schemas": {
+      "AnswerGrounding": {
+        "type": "string",
+        "enum": [
+          "grounded",
+          "partially_grounded",
+          "ungrounded",
+          "abstained",
+          "no_claims"
+        ],
+        "title": "AnswerGrounding"
+      },
+      "AnswerStatus": {
+        "type": "string",
+        "enum": [
+          "answered",
+          "abstained",
+          "insufficient_evidence",
+          "not_generated"
+        ],
+        "title": "AnswerStatus"
+      },
       "Bm25Params-Input": {
         "properties": {
           "k1": {
@@ -1051,6 +1157,33 @@
           "files"
         ],
         "title": "Body_ingest_documents_api_v1_corpora__corpus_id__documents_post"
+      },
+      "ChatMessage": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/ChatRole"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "ChatMessage"
+      },
+      "ChatRole": {
+        "type": "string",
+        "enum": [
+          "system",
+          "user",
+          "assistant"
+        ],
+        "title": "ChatRole"
       },
       "Chunk": {
         "properties": {
@@ -1208,6 +1341,203 @@
         ],
         "title": "ChunkingStrategy"
       },
+      "Citation": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "As written, e.g. E2"
+          },
+          "evidence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Id",
+            "description": "Null when the label names no supplied evidence"
+          },
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "char_start": {
+            "type": "integer",
+            "title": "Char Start",
+            "description": "Offset of the marker in the raw answer"
+          },
+          "char_end": {
+            "type": "integer",
+            "title": "Char End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "evidence_id",
+          "valid",
+          "char_start",
+          "char_end"
+        ],
+        "title": "Citation"
+      },
+      "Claim": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Stable: hash of the answer hash and the claim's position"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "The sentence with citation markers removed"
+          },
+          "raw_text": {
+            "type": "string",
+            "title": "Raw Text",
+            "description": "The sentence as generated, markers included"
+          },
+          "char_start": {
+            "type": "integer",
+            "title": "Char Start"
+          },
+          "char_end": {
+            "type": "integer",
+            "title": "Char End"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ClaimKind"
+          },
+          "content_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Content Terms",
+            "description": "The terms the verifier checks"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "cited_evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cited Evidence Ids",
+            "description": "What the generator cited (generated)"
+          },
+          "supporting_evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Supporting Evidence Ids",
+            "description": "What the verifier measured as supporting (measured)"
+          },
+          "support": {
+            "$ref": "#/components/schemas/SupportStatus"
+          },
+          "support_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Score",
+            "description": "Null when not applicable"
+          },
+          "missing_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Terms",
+            "description": "Content terms absent from the supporting text"
+          },
+          "unmatched_numbers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unmatched Numbers",
+            "description": "Numbers absent from the supporting text"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSupport"
+            },
+            "type": "array",
+            "title": "Evidence",
+            "description": "Every evidence passage, best first"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flags",
+            "description": "e.g. uncited, invalid_citation, cited_not_supporting, number_mismatch, negation_mismatch, multi_passage"
+          },
+          "rationale": {
+            "type": "string",
+            "title": "Rationale"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ContentOrigin",
+            "default": "generated"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "index",
+          "text",
+          "raw_text",
+          "char_start",
+          "char_end",
+          "kind",
+          "content_terms",
+          "citations",
+          "cited_evidence_ids",
+          "supporting_evidence_ids",
+          "support",
+          "support_score",
+          "missing_terms",
+          "unmatched_numbers",
+          "evidence",
+          "flags",
+          "rationale",
+          "origin"
+        ],
+        "title": "Claim"
+      },
+      "ClaimKind": {
+        "type": "string",
+        "enum": [
+          "factual",
+          "abstention",
+          "non_assertive"
+        ],
+        "title": "ClaimKind"
+      },
       "Complexity": {
         "type": "string",
         "enum": [
@@ -1318,6 +1648,41 @@
         ],
         "title": "ContentOrigin",
         "description": "Where a piece of information came from. Every value shown to a user carries one."
+      },
+      "ContextBlock": {
+        "properties": {
+          "citation": {
+            "type": "string",
+            "title": "Citation"
+          },
+          "evidence_id": {
+            "type": "string",
+            "title": "Evidence Id"
+          },
+          "header": {
+            "type": "string",
+            "title": "Header",
+            "description": "The source line shown to the generator"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "token_count": {
+            "type": "integer",
+            "title": "Token Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "citation",
+          "evidence_id",
+          "header",
+          "text",
+          "token_count"
+        ],
+        "title": "ContextBlock"
       },
       "Corpus": {
         "properties": {
@@ -2113,6 +2478,137 @@
         ],
         "title": "EnvironmentSnapshot"
       },
+      "Evidence": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Stable: a hash of corpus version, chunk and exact span, so equal evidence has an equal id across runs"
+          },
+          "citation": {
+            "type": "string",
+            "title": "Citation",
+            "description": "The label the generator cites, e.g. E1"
+          },
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "corpus_version": {
+            "type": "integer",
+            "title": "Corpus Version"
+          },
+          "chunking_hash": {
+            "type": "string",
+            "title": "Chunking Hash"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "document_version_id": {
+            "type": "string",
+            "title": "Document Version Id"
+          },
+          "document_version": {
+            "type": "integer",
+            "title": "Document Version"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "chunk_id": {
+            "type": "string",
+            "title": "Chunk Id"
+          },
+          "chunk_ordinal": {
+            "type": "integer",
+            "title": "Chunk Ordinal"
+          },
+          "char_start": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Char Start",
+            "description": "Span in the extracted document text (inclusive)"
+          },
+          "char_end": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Char End",
+            "description": "Span in the extracted document text (exclusive)"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Exactly the text placed in the generation context"
+          },
+          "text_sha256": {
+            "type": "string",
+            "title": "Text Sha256"
+          },
+          "token_count": {
+            "type": "integer",
+            "title": "Token Count",
+            "description": "Generator tokens this passage uses in the context"
+          },
+          "retrieval": {
+            "$ref": "#/components/schemas/EvidenceRetrieval"
+          },
+          "selection_rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Selection Rank",
+            "description": "Order of selection, 1 = first selected"
+          },
+          "selection_score": {
+            "type": "number",
+            "title": "Selection Score",
+            "description": "The final ranking score selection ordered by"
+          },
+          "selection_reason": {
+            "type": "string",
+            "title": "Selection Reason",
+            "description": "Why it was selected, with measured values"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ContentOrigin",
+            "default": "retrieved"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "citation",
+          "corpus_id",
+          "corpus_version",
+          "chunking_hash",
+          "document_id",
+          "document_version_id",
+          "document_version",
+          "filename",
+          "media_type",
+          "chunk_id",
+          "chunk_ordinal",
+          "char_start",
+          "char_end",
+          "text",
+          "text_sha256",
+          "token_count",
+          "retrieval",
+          "selection_rank",
+          "selection_score",
+          "selection_reason",
+          "origin"
+        ],
+        "title": "Evidence",
+        "description": "A passage selected to support an answer, pinned to the exact corpus version it came from."
+      },
       "EvidenceNeed": {
         "type": "string",
         "enum": [
@@ -2120,6 +2616,342 @@
           "multiple_passages"
         ],
         "title": "EvidenceNeed"
+      },
+      "EvidenceParams-Input": {
+        "properties": {
+          "max_items": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Items",
+            "description": "Evidence budget in passages",
+            "default": 5
+          },
+          "max_context_tokens": {
+            "type": "integer",
+            "maximum": 16000.0,
+            "minimum": 64.0,
+            "title": "Max Context Tokens",
+            "description": "Evidence budget in generator tokens",
+            "default": 1500
+          },
+          "max_per_document": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Per Document",
+            "description": "Diversity cap per document version; null = no cap",
+            "default": 2
+          },
+          "near_duplicate_threshold": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Near Duplicate Threshold",
+            "description": "Skip a passage whose term-set Jaccard with a selected one reaches this; null = keep near-duplicates",
+            "default": 0.8
+          },
+          "min_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Score",
+            "description": "Skip passages whose final ranking score is below this"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "EvidenceParams",
+        "description": "How the evidence stage picks passages from the final ranking. Deterministic."
+      },
+      "EvidenceParams-Output": {
+        "properties": {
+          "max_items": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Items",
+            "description": "Evidence budget in passages",
+            "default": 5
+          },
+          "max_context_tokens": {
+            "type": "integer",
+            "maximum": 16000.0,
+            "minimum": 64.0,
+            "title": "Max Context Tokens",
+            "description": "Evidence budget in generator tokens",
+            "default": 1500
+          },
+          "max_per_document": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Per Document",
+            "description": "Diversity cap per document version; null = no cap",
+            "default": 2
+          },
+          "near_duplicate_threshold": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Near Duplicate Threshold",
+            "description": "Skip a passage whose term-set Jaccard with a selected one reaches this; null = keep near-duplicates",
+            "default": 0.8
+          },
+          "min_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Score",
+            "description": "Skip passages whose final ranking score is below this"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "max_items",
+          "max_context_tokens",
+          "max_per_document",
+          "near_duplicate_threshold",
+          "min_score"
+        ],
+        "title": "EvidenceParams",
+        "description": "How the evidence stage picks passages from the final ranking. Deterministic."
+      },
+      "EvidenceRetrieval": {
+        "properties": {
+          "strategy": {
+            "$ref": "#/components/schemas/RetrievalStrategy"
+          },
+          "retriever": {
+            "type": "string",
+            "title": "Retriever"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Rank",
+            "description": "Final rank (after reranking, if any)"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "Final score (the reranker's, if reranked)"
+          },
+          "upstream_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream Rank",
+            "description": "Rank before reranking; null if not reranked"
+          },
+          "upstream_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream Score",
+            "description": "Retriever score before reranking"
+          },
+          "reranker_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reranker Score"
+          },
+          "configuration_hash": {
+            "type": "string",
+            "title": "Configuration Hash",
+            "description": "The retrieval configuration that ranked it"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "strategy",
+          "retriever",
+          "rank",
+          "score",
+          "upstream_rank",
+          "upstream_score",
+          "reranker_score",
+          "configuration_hash"
+        ],
+        "title": "EvidenceRetrieval",
+        "description": "How retrieval and reranking saw a passage. Copied from the hit, never recomputed."
+      },
+      "EvidenceSelection": {
+        "properties": {
+          "params": {
+            "$ref": "#/components/schemas/EvidenceParams-Output"
+          },
+          "params_hash": {
+            "type": "string",
+            "title": "Params Hash"
+          },
+          "selector": {
+            "type": "string",
+            "title": "Selector"
+          },
+          "candidates": {
+            "type": "integer",
+            "title": "Candidates",
+            "description": "Ranked hits the selector considered"
+          },
+          "selected": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "title": "Selected"
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/SelectionDecision"
+            },
+            "type": "array",
+            "title": "Decisions",
+            "description": "Every candidate, in ranking order"
+          },
+          "tokens_used": {
+            "type": "integer",
+            "title": "Tokens Used"
+          },
+          "tokenizer": {
+            "type": "string",
+            "title": "Tokenizer",
+            "description": "The tokenizer that measured the budget"
+          },
+          "selection_hash": {
+            "type": "string",
+            "title": "Selection Hash",
+            "description": "Hash of params and selected evidence ids, in order"
+          },
+          "latency_ms": {
+            "type": "number",
+            "title": "Latency Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "params",
+          "params_hash",
+          "selector",
+          "candidates",
+          "selected",
+          "decisions",
+          "tokens_used",
+          "tokenizer",
+          "selection_hash",
+          "latency_ms"
+        ],
+        "title": "EvidenceSelection"
+      },
+      "EvidenceSupport": {
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "title": "Evidence Id"
+          },
+          "citation": {
+            "type": "string",
+            "title": "Citation"
+          },
+          "cited": {
+            "type": "boolean",
+            "title": "Cited",
+            "description": "The generator cited this passage for the claim"
+          },
+          "lexical_coverage": {
+            "type": "number",
+            "title": "Lexical Coverage",
+            "description": "Share of the claim's content terms in the passage"
+          },
+          "semantic_similarity": {
+            "type": "number",
+            "title": "Semantic Similarity",
+            "description": "Best cosine of claim vs passage sentences"
+          },
+          "best_sentence": {
+            "type": "string",
+            "title": "Best Sentence",
+            "description": "The passage sentence most similar to the claim"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SupportStatus"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "evidence_id",
+          "citation",
+          "cited",
+          "lexical_coverage",
+          "semantic_similarity",
+          "best_sentence",
+          "score",
+          "status"
+        ],
+        "title": "EvidenceSupport",
+        "description": "How well one evidence passage supports one claim, as measured by the verifier."
       },
       "Experiment": {
         "properties": {
@@ -2313,6 +3145,14 @@
         ],
         "title": "FileOutcome"
       },
+      "FinishReason": {
+        "type": "string",
+        "enum": [
+          "stop",
+          "length"
+        ],
+        "title": "FinishReason"
+      },
       "FusionDetail": {
         "properties": {
           "method": {
@@ -2347,6 +3187,632 @@
           "weighted"
         ],
         "title": "FusionMethod"
+      },
+      "GeneratedAnswer": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "The raw generated answer, citation markers included"
+          },
+          "generation": {
+            "$ref": "#/components/schemas/GenerationRecord"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "generation"
+        ],
+        "title": "GeneratedAnswer"
+      },
+      "GenerationContext": {
+        "properties": {
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "corpus_version": {
+            "type": "integer",
+            "title": "Corpus Version"
+          },
+          "prompt_template": {
+            "type": "string",
+            "title": "Prompt Template",
+            "description": "name@version of the grounded prompt contract"
+          },
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/ContextBlock"
+            },
+            "type": "array",
+            "title": "Blocks"
+          },
+          "evidence_text": {
+            "type": "string",
+            "title": "Evidence Text",
+            "description": "The rendered evidence section, blocks in order"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "context_tokens": {
+            "type": "integer",
+            "title": "Context Tokens",
+            "description": "Generator tokens of the evidence section"
+          },
+          "max_context_tokens": {
+            "type": "integer",
+            "title": "Max Context Tokens"
+          },
+          "tokenizer": {
+            "type": "string",
+            "title": "Tokenizer"
+          },
+          "context_hash": {
+            "type": "string",
+            "title": "Context Hash",
+            "description": "Hash of corpus version, template, evidence ids and exact evidence text"
+          },
+          "prompt_hash": {
+            "type": "string",
+            "title": "Prompt Hash",
+            "description": "Hash of the rendered messages"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "corpus_id",
+          "corpus_version",
+          "prompt_template",
+          "blocks",
+          "evidence_text",
+          "messages",
+          "context_tokens",
+          "max_context_tokens",
+          "tokenizer",
+          "context_hash",
+          "prompt_hash"
+        ],
+        "title": "GenerationContext",
+        "description": "Exactly what the generator saw: the evidence blocks and the rendered prompt."
+      },
+      "GenerationParams-Input": {
+        "properties": {
+          "generator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generator",
+            "description": "A registered generator; null = the configured default"
+          },
+          "max_new_tokens": {
+            "type": "integer",
+            "maximum": 1024.0,
+            "minimum": 1.0,
+            "title": "Max New Tokens",
+            "default": 200
+          },
+          "temperature": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Temperature",
+            "description": "0 = greedy, reproducible",
+            "default": 0.0
+          },
+          "top_p": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Top P",
+            "description": "Sampling only",
+            "default": 1.0
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Seed",
+            "description": "Sampling only; recorded so samples replay",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "GenerationParams"
+      },
+      "GenerationParams-Output": {
+        "properties": {
+          "generator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generator",
+            "description": "A registered generator; null = the configured default"
+          },
+          "max_new_tokens": {
+            "type": "integer",
+            "maximum": 1024.0,
+            "minimum": 1.0,
+            "title": "Max New Tokens",
+            "default": 200
+          },
+          "temperature": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Temperature",
+            "description": "0 = greedy, reproducible",
+            "default": 0.0
+          },
+          "top_p": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Top P",
+            "description": "Sampling only",
+            "default": 1.0
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Seed",
+            "description": "Sampling only; recorded so samples replay",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "generator",
+          "max_new_tokens",
+          "temperature",
+          "top_p",
+          "seed"
+        ],
+        "title": "GenerationParams"
+      },
+      "GenerationRecord": {
+        "properties": {
+          "generator": {
+            "$ref": "#/components/schemas/GeneratorInfo"
+          },
+          "params": {
+            "$ref": "#/components/schemas/GenerationParams-Output",
+            "description": "Effective parameters"
+          },
+          "params_hash": {
+            "type": "string",
+            "title": "Params Hash"
+          },
+          "prompt_hash": {
+            "type": "string",
+            "title": "Prompt Hash"
+          },
+          "raw_text": {
+            "type": "string",
+            "title": "Raw Text",
+            "description": "The generator's output, verbatim"
+          },
+          "answer_hash": {
+            "type": "string",
+            "title": "Answer Hash"
+          },
+          "finish_reason": {
+            "$ref": "#/components/schemas/FinishReason"
+          },
+          "prompt_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Tokens"
+          },
+          "completion_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Tokens"
+          },
+          "deterministic": {
+            "type": "boolean",
+            "title": "Deterministic",
+            "description": "Greedy decoding of a local model: replays exactly"
+          },
+          "load_ms": {
+            "type": "number",
+            "title": "Load Ms",
+            "description": "Model load paid by this request (0 when already loaded)"
+          },
+          "latency_ms": {
+            "type": "number",
+            "title": "Latency Ms",
+            "description": "Generation time, excluding the model load"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ContentOrigin",
+            "default": "generated"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "generator",
+          "params",
+          "params_hash",
+          "prompt_hash",
+          "raw_text",
+          "answer_hash",
+          "finish_reason",
+          "prompt_tokens",
+          "completion_tokens",
+          "deterministic",
+          "load_ms",
+          "latency_ms",
+          "origin"
+        ],
+        "title": "GenerationRecord"
+      },
+      "GeneratorDescriptor": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash",
+            "description": "Equals GeneratorInfo.config_hash once loaded"
+          },
+          "local": {
+            "type": "boolean",
+            "title": "Local"
+          },
+          "loaded": {
+            "type": "boolean",
+            "title": "Loaded"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "provider",
+          "model",
+          "revision",
+          "config_hash",
+          "local",
+          "loaded"
+        ],
+        "title": "GeneratorDescriptor",
+        "description": "A registered generator, described without loading it."
+      },
+      "GeneratorInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "The registered generator name requests use"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash"
+          },
+          "local": {
+            "type": "boolean",
+            "title": "Local",
+            "description": "Runs in this process; false = an HTTP endpoint"
+          },
+          "deterministic_at_zero_temperature": {
+            "type": "boolean",
+            "title": "Deterministic At Zero Temperature"
+          },
+          "max_context_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Context Tokens"
+          },
+          "tokenizer": {
+            "type": "string",
+            "title": "Tokenizer"
+          },
+          "weights_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weights Sha256"
+          },
+          "details": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Details"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "provider",
+          "model",
+          "revision",
+          "config_hash",
+          "local",
+          "deterministic_at_zero_temperature",
+          "max_context_tokens",
+          "tokenizer",
+          "weights_sha256",
+          "details"
+        ],
+        "title": "GeneratorInfo",
+        "description": "The spec plus facts read from the loaded model (or the remote endpoint's identity)."
+      },
+      "GroundingParams": {
+        "properties": {
+          "verifier": {
+            "type": "string",
+            "title": "Verifier",
+            "description": "A registered verifier",
+            "default": "lexical-semantic"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "GroundingParams"
+      },
+      "GroundingReport": {
+        "properties": {
+          "verifier": {
+            "type": "string",
+            "title": "Verifier"
+          },
+          "verifier_version": {
+            "type": "string",
+            "title": "Verifier Version"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash"
+          },
+          "thresholds": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Thresholds"
+          },
+          "detects_contradiction": {
+            "type": "boolean",
+            "title": "Detects Contradiction",
+            "description": "False: 'contradicted' is never emitted, absence of support is 'unsupported'"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnswerGrounding"
+          },
+          "claims": {
+            "type": "integer",
+            "title": "Claims"
+          },
+          "factual_claims": {
+            "type": "integer",
+            "title": "Factual Claims"
+          },
+          "supported": {
+            "type": "integer",
+            "title": "Supported"
+          },
+          "weakly_supported": {
+            "type": "integer",
+            "title": "Weakly Supported"
+          },
+          "unsupported": {
+            "type": "integer",
+            "title": "Unsupported"
+          },
+          "contradicted": {
+            "type": "integer",
+            "title": "Contradicted"
+          },
+          "abstentions": {
+            "type": "integer",
+            "title": "Abstentions"
+          },
+          "non_assertive": {
+            "type": "integer",
+            "title": "Non Assertive"
+          },
+          "grounding_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grounding Score",
+            "description": "(supported + 0.5 x weakly supported) / factual claims; null if none"
+          },
+          "evidence_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Coverage",
+            "description": "Share of selected evidence that supports at least one claim"
+          },
+          "citation_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Coverage",
+            "description": "Share of factual claims with at least one valid citation"
+          },
+          "citation_precision": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Precision",
+            "description": "Share of valid citations whose passage the verifier found supporting"
+          },
+          "invalid_citations": {
+            "type": "integer",
+            "title": "Invalid Citations",
+            "description": "Citations naming evidence that was not supplied"
+          },
+          "grounding_hash": {
+            "type": "string",
+            "title": "Grounding Hash",
+            "description": "Hash of every claim's measured support"
+          },
+          "load_ms": {
+            "type": "number",
+            "title": "Load Ms",
+            "description": "Verifier model load paid by this request (0 if loaded)"
+          },
+          "latency_ms": {
+            "type": "number",
+            "title": "Latency Ms",
+            "description": "Claim extraction and verification, excluding the load"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ContentOrigin",
+            "default": "measured"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "verifier",
+          "verifier_version",
+          "config_hash",
+          "thresholds",
+          "detects_contradiction",
+          "status",
+          "claims",
+          "factual_claims",
+          "supported",
+          "weakly_supported",
+          "unsupported",
+          "contradicted",
+          "abstentions",
+          "non_assertive",
+          "grounding_score",
+          "evidence_coverage",
+          "citation_coverage",
+          "citation_precision",
+          "invalid_citations",
+          "grounding_hash",
+          "load_ms",
+          "latency_ms",
+          "origin"
+        ],
+        "title": "GroundingReport"
       },
       "HTTPValidationError": {
         "properties": {
@@ -2773,6 +4239,74 @@
         ],
         "title": "NotImplementedDetail"
       },
+      "PipelineStage": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hash",
+            "description": "Identity of the stage's output"
+          },
+          "config_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Hash",
+            "description": "Identity of the stage's configuration"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ContentOrigin"
+          },
+          "deterministic": {
+            "type": "boolean",
+            "title": "Deterministic",
+            "description": "Equal inputs and configuration give equal output"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "stage",
+          "hash",
+          "config_hash",
+          "latency_ms",
+          "origin",
+          "deterministic",
+          "detail"
+        ],
+        "title": "PipelineStage",
+        "description": "One link of the provenance chain: what the stage was, its identity and its cost."
+      },
       "Query": {
         "properties": {
           "id": {
@@ -3120,6 +4654,288 @@
           "keyword"
         ],
         "title": "QuestionType"
+      },
+      "RagComponents": {
+        "properties": {
+          "generators": {
+            "items": {
+              "$ref": "#/components/schemas/GeneratorDescriptor"
+            },
+            "type": "array",
+            "title": "Generators"
+          },
+          "default_generator": {
+            "type": "string",
+            "title": "Default Generator"
+          },
+          "verifiers": {
+            "items": {
+              "$ref": "#/components/schemas/VerifierDescriptor"
+            },
+            "type": "array",
+            "title": "Verifiers"
+          },
+          "prompt_template": {
+            "type": "string",
+            "title": "Prompt Template"
+          },
+          "evidence_defaults": {
+            "$ref": "#/components/schemas/EvidenceParams-Output"
+          },
+          "generation_defaults": {
+            "$ref": "#/components/schemas/GenerationParams-Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generators",
+          "default_generator",
+          "verifiers",
+          "prompt_template",
+          "evidence_defaults",
+          "generation_defaults"
+        ],
+        "title": "RagComponents",
+        "description": "What the answer pipeline can run, described without loading any model."
+      },
+      "RagConfiguration": {
+        "properties": {
+          "retrieval": {
+            "$ref": "#/components/schemas/RetrievalConfiguration"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/EvidenceParams-Output"
+          },
+          "prompt_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Template"
+          },
+          "generator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generator"
+          },
+          "generator_config_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generator Config Hash"
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationParams-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier"
+          },
+          "verifier_config_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Config Hash"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "retrieval",
+          "evidence",
+          "prompt_template",
+          "generator",
+          "generator_config_hash",
+          "generation",
+          "verifier",
+          "verifier_config_hash"
+        ],
+        "title": "RagConfiguration",
+        "description": "Everything that determines an answer, resolved. Its hash identifies the pipeline."
+      },
+      "RagProvenance": {
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/RagConfiguration"
+          },
+          "configuration_hash": {
+            "type": "string",
+            "title": "Configuration Hash"
+          },
+          "chain": {
+            "items": {
+              "$ref": "#/components/schemas/PipelineStage"
+            },
+            "type": "array",
+            "title": "Chain"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/EnvironmentSnapshot"
+          },
+          "elapsed_ms": {
+            "type": "number",
+            "title": "Elapsed Ms"
+          },
+          "answered_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Answered At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "configuration",
+          "configuration_hash",
+          "chain",
+          "environment",
+          "elapsed_ms",
+          "answered_at"
+        ],
+        "title": "RagProvenance"
+      },
+      "RagRequest": {
+        "properties": {
+          "retrieval": {
+            "$ref": "#/components/schemas/RetrievalRequest-Input"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/EvidenceParams-Input"
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationParams-Input"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null = stop after evidence selection and context assembly"
+          },
+          "grounding": {
+            "$ref": "#/components/schemas/GroundingParams"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "retrieval"
+        ],
+        "title": "RagRequest"
+      },
+      "RagResponse": {
+        "properties": {
+          "query": {
+            "$ref": "#/components/schemas/Query"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnswerStatus"
+          },
+          "retrieval": {
+            "$ref": "#/components/schemas/RetrievalResponse"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/EvidenceSelection"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationContext"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when no evidence was usable"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeneratedAnswer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/Claim"
+            },
+            "type": "array",
+            "title": "Claims"
+          },
+          "grounding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GroundingReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/RagProvenance"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query",
+          "status",
+          "retrieval",
+          "evidence",
+          "context",
+          "answer",
+          "claims",
+          "grounding",
+          "provenance",
+          "warnings"
+        ],
+        "title": "RagResponse"
       },
       "RankMovement": {
         "type": "string",
@@ -4497,6 +6313,114 @@
         "title": "RuleEvaluation",
         "description": "One policy rule as evaluated for this query: what it read and whether it fired."
       },
+      "SelectionDecision": {
+        "properties": {
+          "chunk_id": {
+            "type": "string",
+            "title": "Chunk Id"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/SelectionOutcome"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "token_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Count",
+            "description": "Generator tokens; null if never measured"
+          },
+          "evidence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Id",
+            "description": "Set when selected"
+          },
+          "similar_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Similar To",
+            "description": "Near duplicates: the evidence id"
+          },
+          "similarity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Similarity",
+            "description": "Near duplicates: the Jaccard"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "chunk_id",
+          "document_id",
+          "filename",
+          "rank",
+          "score",
+          "outcome",
+          "detail",
+          "token_count",
+          "evidence_id",
+          "similar_to",
+          "similarity"
+        ],
+        "title": "SelectionDecision",
+        "description": "One ranked candidate as the evidence stage judged it, selected or not."
+      },
+      "SelectionOutcome": {
+        "type": "string",
+        "enum": [
+          "selected",
+          "near_duplicate",
+          "document_cap",
+          "below_min_score",
+          "over_token_budget",
+          "over_item_budget"
+        ],
+        "title": "SelectionOutcome"
+      },
       "SignalContribution": {
         "properties": {
           "feature": {
@@ -4527,6 +6451,17 @@
           "contribution"
         ],
         "title": "SignalContribution"
+      },
+      "SupportStatus": {
+        "type": "string",
+        "enum": [
+          "supported",
+          "weakly_supported",
+          "unsupported",
+          "contradicted",
+          "not_applicable"
+        ],
+        "title": "SupportStatus"
       },
       "SupportedFormat": {
         "properties": {
@@ -4619,6 +6554,42 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VerifierDescriptor": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "detects_contradiction": {
+            "type": "boolean",
+            "title": "Detects Contradiction"
+          },
+          "thresholds": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Thresholds"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "version",
+          "detects_contradiction",
+          "thresholds",
+          "config_hash"
+        ],
+        "title": "VerifierDescriptor"
       },
       "VersionChange": {
         "properties": {

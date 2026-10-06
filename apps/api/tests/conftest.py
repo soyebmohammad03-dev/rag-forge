@@ -4,9 +4,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from rag_forge.domain.models import EmbedderSpec, RerankerSpec
+from rag_forge.domain.models import EmbedderSpec, GeneratorSpec, RerankerSpec
 from rag_forge.ingestion.service import IngestionService
 from rag_forge.main import create_app
+from rag_forge.rag.generation import OnnxCausalLM
 from rag_forge.retrieval.embedding import OnnxSentenceEmbedder
 from rag_forge.retrieval.rerank import OnnxCrossEncoder
 from rag_forge.storage.blobs import BlobStore
@@ -53,6 +54,12 @@ def embedder() -> OnnxSentenceEmbedder:
 def cross_encoder() -> OnnxCrossEncoder:
     """The real pinned cross-encoder, loaded once per session (cached like the embedder)."""
     return OnnxCrossEncoder(RerankerSpec())
+
+
+@pytest.fixture(scope="session")
+def generator() -> OnnxCausalLM:
+    """The real pinned default generator, loaded once per session (cached like the embedder)."""
+    return OnnxCausalLM(GeneratorSpec())
 
 
 @pytest.fixture

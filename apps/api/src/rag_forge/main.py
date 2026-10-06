@@ -13,11 +13,20 @@ from rag_forge.domain.models import (
     Corpus,
     DenseIndexState,
     EmbedderSpec,
+    GeneratorSpec,
     RerankerSpec,
     RetrievalStrategy,
     RouteOption,
 )
 from rag_forge.ingestion.service import IngestionService
+from rag_forge.rag.generation import (
+    ExtractiveGenerator,
+    Generator,
+    OnnxCausalLM,
+    OpenAICompatibleGenerator,
+)
+from rag_forge.rag.grounding import LexicalSemanticVerifier
+from rag_forge.rag.service import RagService
 from rag_forge.retrieval.dense import DenseIndexService, DenseRetriever
 from rag_forge.retrieval.embedding import Embedder, OnnxSentenceEmbedder
 from rag_forge.retrieval.hybrid import hybrid_factory
@@ -61,18 +70,40 @@ def make_router(
     )
 
 
+def make_generators(default: Generator) -> dict[str, Generator]:
+    """The default local model, the extractive baseline, and an optional HTTP endpoint.
+
+    $RAG_FORGE_OPENAI_BASE_URL and $RAG_FORGE_OPENAI_MODEL register an OpenAI-compatible
+    `/chat/completions` endpoint (e.g. a local llama.cpp or Ollama server) as "openai-compatible";
+    $RAG_FORGE_OPENAI_API_KEY is sent as a bearer token if set and is never recorded.
+    """
+    generators: list[Generator] = [default, ExtractiveGenerator()]
+    base_url, model = (
+        os.environ.get("RAG_FORGE_OPENAI_BASE_URL"),
+        os.environ.get("RAG_FORGE_OPENAI_MODEL"),
+    )
+    if base_url and model:
+        generators.append(
+            OpenAICompatibleGenerator(base_url, model, os.environ.get("RAG_FORGE_OPENAI_API_KEY"))
+        )
+    return {g.name: g for g in generators}
+
+
 def create_app(
     data_dir: Path | None = None,
     embedder: Embedder | None = None,
     reranker: Reranker | None = None,
+    generator: Generator | None = None,
 ) -> FastAPI:
     """`data_dir` holds the SQLite database and content-addressed blobs.
 
     Defaults to $RAG_FORGE_DATA_DIR, else ./data relative to the working directory. The embedder
     defaults to the pinned local ONNX model; $RAG_FORGE_EMBEDDER (an EmbedderSpec as JSON)
     selects another sentence-transformers-layout model. The reranker defaults to the pinned local
-    ONNX cross-encoder; $RAG_FORGE_RERANKER (a RerankerSpec as JSON) selects another. Models load
-    lazily on first use and stay loaded for the life of the process.
+    ONNX cross-encoder; $RAG_FORGE_RERANKER (a RerankerSpec as JSON) selects another. The
+    generator defaults to the pinned local ONNX chat model; $RAG_FORGE_GENERATOR (a GeneratorSpec
+    as JSON) selects another. Models load lazily on first use and stay loaded for the life of the
+    process.
     """
     spec_json = os.environ.get("RAG_FORGE_EMBEDDER")
     embedder = embedder or OnnxSentenceEmbedder(
@@ -81,6 +112,10 @@ def create_app(
     rerank_json = os.environ.get("RAG_FORGE_RERANKER")
     reranker = reranker or OnnxCrossEncoder(
         RerankerSpec.model_validate_json(rerank_json) if rerank_json else RerankerSpec()
+    )
+    generator_json = os.environ.get("RAG_FORGE_GENERATOR")
+    generator = generator or OnnxCausalLM(
+        GeneratorSpec.model_validate_json(generator_json) if generator_json else GeneratorSpec()
     )
     data_dir = data_dir or Path(os.environ.get("RAG_FORGE_DATA_DIR", "data"))
     app = FastAPI(title="RAG FORGE API", version=__version__)
@@ -104,6 +139,13 @@ def create_app(
         router=router,
     )
     app.state.reranker = reranker
+    verifier = LexicalSemanticVerifier(embedder)  # shares the loaded embedding model
+    app.state.rag = RagService(
+        app.state.retrieval,
+        make_generators(generator),
+        {verifier.name: verifier},
+        default_generator=generator.name,
+    )
     app.state.started_at = datetime.now(UTC)
     origins = os.environ.get("RAG_FORGE_CORS_ORIGINS", "http://localhost:3000").split(",")
     app.add_middleware(

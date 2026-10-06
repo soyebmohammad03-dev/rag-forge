@@ -58,6 +58,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rag/components": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rag Components */
+        get: operations["rag_components_api_v1_rag_components_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/experiments": {
         parameters: {
             query?: never;
@@ -292,6 +309,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/corpora/{corpus_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer
+         * @description Answer a query from one corpus version with cited, claim-level grounded evidence.
+         *
+         *     Runs retrieval exactly as /retrieve does (manual or adaptive), selects evidence, assembles
+         *     the context, generates, extracts claims and measures their grounding. With
+         *     `generation: null` it stops after context assembly. Every failure is an error response:
+         *     an answer is never returned with its grounding missing.
+         */
+        post: operations["answer_api_v1_corpora__corpus_id__answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/corpora/{corpus_id}/dense-index": {
         parameters: {
             query?: never;
@@ -320,6 +362,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AnswerGrounding
+         * @enum {string}
+         */
+        AnswerGrounding: "grounded" | "partially_grounded" | "ungrounded" | "abstained" | "no_claims";
+        /**
+         * AnswerStatus
+         * @enum {string}
+         */
+        AnswerStatus: "answered" | "abstained" | "insufficient_evidence" | "not_generated";
         /** Bm25Params */
         "Bm25Params-Input": {
             /**
@@ -358,6 +410,17 @@ export interface components {
              */
             files: string[];
         };
+        /** ChatMessage */
+        ChatMessage: {
+            role: components["schemas"]["ChatRole"];
+            /** Content */
+            content: string;
+        };
+        /**
+         * ChatRole
+         * @enum {string}
+         */
+        ChatRole: "system" | "user" | "assistant";
         /** Chunk */
         Chunk: {
             /** Id */
@@ -437,6 +500,105 @@ export interface components {
          * @enum {string}
          */
         ChunkingStrategy: "recursive" | "fixed";
+        /** Citation */
+        Citation: {
+            /**
+             * Label
+             * @description As written, e.g. E2
+             */
+            label: string;
+            /**
+             * Evidence Id
+             * @description Null when the label names no supplied evidence
+             */
+            evidence_id: string | null;
+            /** Valid */
+            valid: boolean;
+            /**
+             * Char Start
+             * @description Offset of the marker in the raw answer
+             */
+            char_start: number;
+            /** Char End */
+            char_end: number;
+        };
+        /** Claim */
+        Claim: {
+            /**
+             * Id
+             * @description Stable: hash of the answer hash and the claim's position
+             */
+            id: string;
+            /** Index */
+            index: number;
+            /**
+             * Text
+             * @description The sentence with citation markers removed
+             */
+            text: string;
+            /**
+             * Raw Text
+             * @description The sentence as generated, markers included
+             */
+            raw_text: string;
+            /** Char Start */
+            char_start: number;
+            /** Char End */
+            char_end: number;
+            kind: components["schemas"]["ClaimKind"];
+            /**
+             * Content Terms
+             * @description The terms the verifier checks
+             */
+            content_terms: string[];
+            /** Citations */
+            citations: components["schemas"]["Citation"][];
+            /**
+             * Cited Evidence Ids
+             * @description What the generator cited (generated)
+             */
+            cited_evidence_ids: string[];
+            /**
+             * Supporting Evidence Ids
+             * @description What the verifier measured as supporting (measured)
+             */
+            supporting_evidence_ids: string[];
+            support: components["schemas"]["SupportStatus"];
+            /**
+             * Support Score
+             * @description Null when not applicable
+             */
+            support_score: number | null;
+            /**
+             * Missing Terms
+             * @description Content terms absent from the supporting text
+             */
+            missing_terms: string[];
+            /**
+             * Unmatched Numbers
+             * @description Numbers absent from the supporting text
+             */
+            unmatched_numbers: string[];
+            /**
+             * Evidence
+             * @description Every evidence passage, best first
+             */
+            evidence: components["schemas"]["EvidenceSupport"][];
+            /**
+             * Flags
+             * @description e.g. uncited, invalid_citation, cited_not_supporting, number_mismatch, negation_mismatch, multi_passage
+             */
+            flags: string[];
+            /** Rationale */
+            rationale: string;
+            /** @default generated */
+            origin: components["schemas"]["ContentOrigin"];
+        };
+        /**
+         * ClaimKind
+         * @enum {string}
+         */
+        ClaimKind: "factual" | "abstention" | "non_assertive";
         /**
          * Complexity
          * @enum {string}
@@ -488,6 +650,22 @@ export interface components {
          * @enum {string}
          */
         ContentOrigin: "retrieved" | "inferred" | "generated" | "measured" | "simulated";
+        /** ContextBlock */
+        ContextBlock: {
+            /** Citation */
+            citation: string;
+            /** Evidence Id */
+            evidence_id: string;
+            /**
+             * Header
+             * @description The source line shown to the generator
+             */
+            header: string;
+            /** Text */
+            text: string;
+            /** Token Count */
+            token_count: number;
+        };
         /** Corpus */
         Corpus: {
             /** Id */
@@ -857,10 +1035,259 @@ export interface components {
             };
         };
         /**
+         * Evidence
+         * @description A passage selected to support an answer, pinned to the exact corpus version it came from.
+         */
+        Evidence: {
+            /**
+             * Id
+             * @description Stable: a hash of corpus version, chunk and exact span, so equal evidence has an equal id across runs
+             */
+            id: string;
+            /**
+             * Citation
+             * @description The label the generator cites, e.g. E1
+             */
+            citation: string;
+            /** Corpus Id */
+            corpus_id: string;
+            /** Corpus Version */
+            corpus_version: number;
+            /** Chunking Hash */
+            chunking_hash: string;
+            /** Document Id */
+            document_id: string;
+            /** Document Version Id */
+            document_version_id: string;
+            /** Document Version */
+            document_version: number;
+            /** Filename */
+            filename: string;
+            /** Media Type */
+            media_type: string;
+            /** Chunk Id */
+            chunk_id: string;
+            /** Chunk Ordinal */
+            chunk_ordinal: number;
+            /**
+             * Char Start
+             * @description Span in the extracted document text (inclusive)
+             */
+            char_start: number;
+            /**
+             * Char End
+             * @description Span in the extracted document text (exclusive)
+             */
+            char_end: number;
+            /**
+             * Text
+             * @description Exactly the text placed in the generation context
+             */
+            text: string;
+            /** Text Sha256 */
+            text_sha256: string;
+            /**
+             * Token Count
+             * @description Generator tokens this passage uses in the context
+             */
+            token_count: number;
+            retrieval: components["schemas"]["EvidenceRetrieval"];
+            /**
+             * Selection Rank
+             * @description Order of selection, 1 = first selected
+             */
+            selection_rank: number;
+            /**
+             * Selection Score
+             * @description The final ranking score selection ordered by
+             */
+            selection_score: number;
+            /**
+             * Selection Reason
+             * @description Why it was selected, with measured values
+             */
+            selection_reason: string;
+            /** @default retrieved */
+            origin: components["schemas"]["ContentOrigin"];
+        };
+        /**
          * EvidenceNeed
          * @enum {string}
          */
         EvidenceNeed: "single_passage" | "multiple_passages";
+        /**
+         * EvidenceParams
+         * @description How the evidence stage picks passages from the final ranking. Deterministic.
+         */
+        "EvidenceParams-Input": {
+            /**
+             * Max Items
+             * @description Evidence budget in passages
+             * @default 5
+             */
+            max_items: number;
+            /**
+             * Max Context Tokens
+             * @description Evidence budget in generator tokens
+             * @default 1500
+             */
+            max_context_tokens: number;
+            /**
+             * Max Per Document
+             * @description Diversity cap per document version; null = no cap
+             * @default 2
+             */
+            max_per_document: number | null;
+            /**
+             * Near Duplicate Threshold
+             * @description Skip a passage whose term-set Jaccard with a selected one reaches this; null = keep near-duplicates
+             * @default 0.8
+             */
+            near_duplicate_threshold: number | null;
+            /**
+             * Min Score
+             * @description Skip passages whose final ranking score is below this
+             */
+            min_score?: number | null;
+        };
+        /**
+         * EvidenceParams
+         * @description How the evidence stage picks passages from the final ranking. Deterministic.
+         */
+        "EvidenceParams-Output": {
+            /**
+             * Max Items
+             * @description Evidence budget in passages
+             * @default 5
+             */
+            max_items: number;
+            /**
+             * Max Context Tokens
+             * @description Evidence budget in generator tokens
+             * @default 1500
+             */
+            max_context_tokens: number;
+            /**
+             * Max Per Document
+             * @description Diversity cap per document version; null = no cap
+             * @default 2
+             */
+            max_per_document: number | null;
+            /**
+             * Near Duplicate Threshold
+             * @description Skip a passage whose term-set Jaccard with a selected one reaches this; null = keep near-duplicates
+             * @default 0.8
+             */
+            near_duplicate_threshold: number | null;
+            /**
+             * Min Score
+             * @description Skip passages whose final ranking score is below this
+             */
+            min_score: number | null;
+        };
+        /**
+         * EvidenceRetrieval
+         * @description How retrieval and reranking saw a passage. Copied from the hit, never recomputed.
+         */
+        EvidenceRetrieval: {
+            strategy: components["schemas"]["RetrievalStrategy"];
+            /** Retriever */
+            retriever: string;
+            /**
+             * Rank
+             * @description Final rank (after reranking, if any)
+             */
+            rank: number;
+            /**
+             * Score
+             * @description Final score (the reranker's, if reranked)
+             */
+            score: number;
+            /**
+             * Upstream Rank
+             * @description Rank before reranking; null if not reranked
+             */
+            upstream_rank: number | null;
+            /**
+             * Upstream Score
+             * @description Retriever score before reranking
+             */
+            upstream_score: number | null;
+            /** Reranker Score */
+            reranker_score: number | null;
+            /**
+             * Configuration Hash
+             * @description The retrieval configuration that ranked it
+             */
+            configuration_hash: string;
+        };
+        /** EvidenceSelection */
+        EvidenceSelection: {
+            params: components["schemas"]["EvidenceParams-Output"];
+            /** Params Hash */
+            params_hash: string;
+            /** Selector */
+            selector: string;
+            /**
+             * Candidates
+             * @description Ranked hits the selector considered
+             */
+            candidates: number;
+            /** Selected */
+            selected: components["schemas"]["Evidence"][];
+            /**
+             * Decisions
+             * @description Every candidate, in ranking order
+             */
+            decisions: components["schemas"]["SelectionDecision"][];
+            /** Tokens Used */
+            tokens_used: number;
+            /**
+             * Tokenizer
+             * @description The tokenizer that measured the budget
+             */
+            tokenizer: string;
+            /**
+             * Selection Hash
+             * @description Hash of params and selected evidence ids, in order
+             */
+            selection_hash: string;
+            /** Latency Ms */
+            latency_ms: number;
+        };
+        /**
+         * EvidenceSupport
+         * @description How well one evidence passage supports one claim, as measured by the verifier.
+         */
+        EvidenceSupport: {
+            /** Evidence Id */
+            evidence_id: string;
+            /** Citation */
+            citation: string;
+            /**
+             * Cited
+             * @description The generator cited this passage for the claim
+             */
+            cited: boolean;
+            /**
+             * Lexical Coverage
+             * @description Share of the claim's content terms in the passage
+             */
+            lexical_coverage: number;
+            /**
+             * Semantic Similarity
+             * @description Best cosine of claim vs passage sentences
+             */
+            semantic_similarity: number;
+            /**
+             * Best Sentence
+             * @description The passage sentence most similar to the claim
+             */
+            best_sentence: string;
+            /** Score */
+            score: number;
+            status: components["schemas"]["SupportStatus"];
+        };
         /** Experiment */
         Experiment: {
             /** Id */
@@ -930,6 +1357,11 @@ export interface components {
          * @enum {string}
          */
         FileOutcome: "added" | "modified" | "unchanged" | "duplicate" | "rejected" | "removed";
+        /**
+         * FinishReason
+         * @enum {string}
+         */
+        FinishReason: "stop" | "length";
         /** FusionDetail */
         FusionDetail: {
             method: components["schemas"]["FusionMethod"];
@@ -946,6 +1378,304 @@ export interface components {
          * @enum {string}
          */
         FusionMethod: "rrf" | "weighted";
+        /** GeneratedAnswer */
+        GeneratedAnswer: {
+            /**
+             * Text
+             * @description The raw generated answer, citation markers included
+             */
+            text: string;
+            generation: components["schemas"]["GenerationRecord"];
+        };
+        /**
+         * GenerationContext
+         * @description Exactly what the generator saw: the evidence blocks and the rendered prompt.
+         */
+        GenerationContext: {
+            /** Corpus Id */
+            corpus_id: string;
+            /** Corpus Version */
+            corpus_version: number;
+            /**
+             * Prompt Template
+             * @description name@version of the grounded prompt contract
+             */
+            prompt_template: string;
+            /** Blocks */
+            blocks: components["schemas"]["ContextBlock"][];
+            /**
+             * Evidence Text
+             * @description The rendered evidence section, blocks in order
+             */
+            evidence_text: string;
+            /** Messages */
+            messages: components["schemas"]["ChatMessage"][];
+            /**
+             * Context Tokens
+             * @description Generator tokens of the evidence section
+             */
+            context_tokens: number;
+            /** Max Context Tokens */
+            max_context_tokens: number;
+            /** Tokenizer */
+            tokenizer: string;
+            /**
+             * Context Hash
+             * @description Hash of corpus version, template, evidence ids and exact evidence text
+             */
+            context_hash: string;
+            /**
+             * Prompt Hash
+             * @description Hash of the rendered messages
+             */
+            prompt_hash: string;
+        };
+        /** GenerationParams */
+        "GenerationParams-Input": {
+            /**
+             * Generator
+             * @description A registered generator; null = the configured default
+             */
+            generator?: string | null;
+            /**
+             * Max New Tokens
+             * @default 200
+             */
+            max_new_tokens: number;
+            /**
+             * Temperature
+             * @description 0 = greedy, reproducible
+             * @default 0
+             */
+            temperature: number;
+            /**
+             * Top P
+             * @description Sampling only
+             * @default 1
+             */
+            top_p: number;
+            /**
+             * Seed
+             * @description Sampling only; recorded so samples replay
+             * @default 0
+             */
+            seed: number;
+        };
+        /** GenerationParams */
+        "GenerationParams-Output": {
+            /**
+             * Generator
+             * @description A registered generator; null = the configured default
+             */
+            generator: string | null;
+            /**
+             * Max New Tokens
+             * @default 200
+             */
+            max_new_tokens: number;
+            /**
+             * Temperature
+             * @description 0 = greedy, reproducible
+             * @default 0
+             */
+            temperature: number;
+            /**
+             * Top P
+             * @description Sampling only
+             * @default 1
+             */
+            top_p: number;
+            /**
+             * Seed
+             * @description Sampling only; recorded so samples replay
+             * @default 0
+             */
+            seed: number;
+        };
+        /** GenerationRecord */
+        GenerationRecord: {
+            generator: components["schemas"]["GeneratorInfo"];
+            /** @description Effective parameters */
+            params: components["schemas"]["GenerationParams-Output"];
+            /** Params Hash */
+            params_hash: string;
+            /** Prompt Hash */
+            prompt_hash: string;
+            /**
+             * Raw Text
+             * @description The generator's output, verbatim
+             */
+            raw_text: string;
+            /** Answer Hash */
+            answer_hash: string;
+            finish_reason: components["schemas"]["FinishReason"];
+            /** Prompt Tokens */
+            prompt_tokens: number | null;
+            /** Completion Tokens */
+            completion_tokens: number | null;
+            /**
+             * Deterministic
+             * @description Greedy decoding of a local model: replays exactly
+             */
+            deterministic: boolean;
+            /**
+             * Load Ms
+             * @description Model load paid by this request (0 when already loaded)
+             */
+            load_ms: number;
+            /**
+             * Latency Ms
+             * @description Generation time, excluding the model load
+             */
+            latency_ms: number;
+            /** @default generated */
+            origin: components["schemas"]["ContentOrigin"];
+        };
+        /**
+         * GeneratorDescriptor
+         * @description A registered generator, described without loading it.
+         */
+        GeneratorDescriptor: {
+            /** Name */
+            name: string;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Revision */
+            revision: string | null;
+            /**
+             * Config Hash
+             * @description Equals GeneratorInfo.config_hash once loaded
+             */
+            config_hash: string;
+            /** Local */
+            local: boolean;
+            /** Loaded */
+            loaded: boolean;
+        };
+        /**
+         * GeneratorInfo
+         * @description The spec plus facts read from the loaded model (or the remote endpoint's identity).
+         */
+        GeneratorInfo: {
+            /**
+             * Name
+             * @description The registered generator name requests use
+             */
+            name: string;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Revision */
+            revision: string | null;
+            /** Config Hash */
+            config_hash: string;
+            /**
+             * Local
+             * @description Runs in this process; false = an HTTP endpoint
+             */
+            local: boolean;
+            /** Deterministic At Zero Temperature */
+            deterministic_at_zero_temperature: boolean;
+            /** Max Context Tokens */
+            max_context_tokens: number | null;
+            /** Tokenizer */
+            tokenizer: string;
+            /** Weights Sha256 */
+            weights_sha256: string | null;
+            /** Details */
+            details: {
+                [key: string]: string | number | boolean | null;
+            };
+        };
+        /** GroundingParams */
+        GroundingParams: {
+            /**
+             * Verifier
+             * @description A registered verifier
+             * @default lexical-semantic
+             */
+            verifier: string;
+        };
+        /** GroundingReport */
+        GroundingReport: {
+            /** Verifier */
+            verifier: string;
+            /** Verifier Version */
+            verifier_version: string;
+            /** Config Hash */
+            config_hash: string;
+            /** Thresholds */
+            thresholds: {
+                [key: string]: number;
+            };
+            /**
+             * Detects Contradiction
+             * @description False: 'contradicted' is never emitted, absence of support is 'unsupported'
+             */
+            detects_contradiction: boolean;
+            status: components["schemas"]["AnswerGrounding"];
+            /** Claims */
+            claims: number;
+            /** Factual Claims */
+            factual_claims: number;
+            /** Supported */
+            supported: number;
+            /** Weakly Supported */
+            weakly_supported: number;
+            /** Unsupported */
+            unsupported: number;
+            /** Contradicted */
+            contradicted: number;
+            /** Abstentions */
+            abstentions: number;
+            /** Non Assertive */
+            non_assertive: number;
+            /**
+             * Grounding Score
+             * @description (supported + 0.5 x weakly supported) / factual claims; null if none
+             */
+            grounding_score: number | null;
+            /**
+             * Evidence Coverage
+             * @description Share of selected evidence that supports at least one claim
+             */
+            evidence_coverage: number | null;
+            /**
+             * Citation Coverage
+             * @description Share of factual claims with at least one valid citation
+             */
+            citation_coverage: number | null;
+            /**
+             * Citation Precision
+             * @description Share of valid citations whose passage the verifier found supporting
+             */
+            citation_precision: number | null;
+            /**
+             * Invalid Citations
+             * @description Citations naming evidence that was not supplied
+             */
+            invalid_citations: number;
+            /**
+             * Grounding Hash
+             * @description Hash of every claim's measured support
+             */
+            grounding_hash: string;
+            /**
+             * Load Ms
+             * @description Verifier model load paid by this request (0 if loaded)
+             */
+            load_ms: number;
+            /**
+             * Latency Ms
+             * @description Claim extraction and verification, excluding the load
+             */
+            latency_ms: number;
+            /** @default measured */
+            origin: components["schemas"]["ContentOrigin"];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1107,6 +1837,34 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * PipelineStage
+         * @description One link of the provenance chain: what the stage was, its identity and its cost.
+         */
+        PipelineStage: {
+            /** Stage */
+            stage: string;
+            /**
+             * Hash
+             * @description Identity of the stage's output
+             */
+            hash: string | null;
+            /**
+             * Config Hash
+             * @description Identity of the stage's configuration
+             */
+            config_hash: string | null;
+            /** Latency Ms */
+            latency_ms: number | null;
+            origin: components["schemas"]["ContentOrigin"];
+            /**
+             * Deterministic
+             * @description Equal inputs and configuration give equal output
+             */
+            deterministic: boolean;
+            /** Detail */
+            detail: string;
+        };
         /** Query */
         Query: {
             /** Id */
@@ -1259,6 +2017,81 @@ export interface components {
          * @enum {string}
          */
         QuestionType: "definition" | "procedural" | "explanatory" | "comparison" | "list" | "boolean" | "factoid" | "keyword";
+        /**
+         * RagComponents
+         * @description What the answer pipeline can run, described without loading any model.
+         */
+        RagComponents: {
+            /** Generators */
+            generators: components["schemas"]["GeneratorDescriptor"][];
+            /** Default Generator */
+            default_generator: string;
+            /** Verifiers */
+            verifiers: components["schemas"]["VerifierDescriptor"][];
+            /** Prompt Template */
+            prompt_template: string;
+            evidence_defaults: components["schemas"]["EvidenceParams-Output"];
+            generation_defaults: components["schemas"]["GenerationParams-Output"];
+        };
+        /**
+         * RagConfiguration
+         * @description Everything that determines an answer, resolved. Its hash identifies the pipeline.
+         */
+        RagConfiguration: {
+            retrieval: components["schemas"]["RetrievalConfiguration"];
+            evidence: components["schemas"]["EvidenceParams-Output"];
+            /** Prompt Template */
+            prompt_template: string | null;
+            /** Generator */
+            generator: string | null;
+            /** Generator Config Hash */
+            generator_config_hash: string | null;
+            generation: components["schemas"]["GenerationParams-Output"] | null;
+            /** Verifier */
+            verifier: string | null;
+            /** Verifier Config Hash */
+            verifier_config_hash: string | null;
+        };
+        /** RagProvenance */
+        RagProvenance: {
+            configuration: components["schemas"]["RagConfiguration"];
+            /** Configuration Hash */
+            configuration_hash: string;
+            /** Chain */
+            chain: components["schemas"]["PipelineStage"][];
+            environment: components["schemas"]["EnvironmentSnapshot"];
+            /** Elapsed Ms */
+            elapsed_ms: number;
+            /**
+             * Answered At
+             * Format: date-time
+             */
+            answered_at: string;
+        };
+        /** RagRequest */
+        RagRequest: {
+            retrieval: components["schemas"]["RetrievalRequest-Input"];
+            evidence?: components["schemas"]["EvidenceParams-Input"];
+            /** @description null = stop after evidence selection and context assembly */
+            generation?: components["schemas"]["GenerationParams-Input"] | null;
+            grounding?: components["schemas"]["GroundingParams"];
+        };
+        /** RagResponse */
+        RagResponse: {
+            query: components["schemas"]["Query"];
+            status: components["schemas"]["AnswerStatus"];
+            retrieval: components["schemas"]["RetrievalResponse"];
+            evidence: components["schemas"]["EvidenceSelection"];
+            /** @description Null when no evidence was usable */
+            context: components["schemas"]["GenerationContext"] | null;
+            answer: components["schemas"]["GeneratedAnswer"] | null;
+            /** Claims */
+            claims: components["schemas"]["Claim"][];
+            grounding: components["schemas"]["GroundingReport"] | null;
+            provenance: components["schemas"]["RagProvenance"];
+            /** Warnings */
+            warnings: string[];
+        };
         /**
          * RankMovement
          * @enum {string}
@@ -1871,6 +2704,50 @@ export interface components {
              */
             outcome: string | null;
         };
+        /**
+         * SelectionDecision
+         * @description One ranked candidate as the evidence stage judged it, selected or not.
+         */
+        SelectionDecision: {
+            /** Chunk Id */
+            chunk_id: string;
+            /** Document Id */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /** Rank */
+            rank: number;
+            /** Score */
+            score: number;
+            outcome: components["schemas"]["SelectionOutcome"];
+            /** Detail */
+            detail: string;
+            /**
+             * Token Count
+             * @description Generator tokens; null if never measured
+             */
+            token_count: number | null;
+            /**
+             * Evidence Id
+             * @description Set when selected
+             */
+            evidence_id: string | null;
+            /**
+             * Similar To
+             * @description Near duplicates: the evidence id
+             */
+            similar_to: string | null;
+            /**
+             * Similarity
+             * @description Near duplicates: the Jaccard
+             */
+            similarity: number | null;
+        };
+        /**
+         * SelectionOutcome
+         * @enum {string}
+         */
+        SelectionOutcome: "selected" | "near_duplicate" | "document_cap" | "below_min_score" | "over_token_budget" | "over_item_budget";
         /** SignalContribution */
         SignalContribution: {
             /** Feature */
@@ -1888,6 +2765,11 @@ export interface components {
              */
             contribution: number;
         };
+        /**
+         * SupportStatus
+         * @enum {string}
+         */
+        SupportStatus: "supported" | "weakly_supported" | "unsupported" | "contradicted" | "not_applicable";
         /** SupportedFormat */
         SupportedFormat: {
             /** Media Type */
@@ -1924,6 +2806,21 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VerifierDescriptor */
+        VerifierDescriptor: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+            /** Detects Contradiction */
+            detects_contradiction: boolean;
+            /** Thresholds */
+            thresholds: {
+                [key: string]: number;
+            };
+            /** Config Hash */
+            config_hash: string;
         };
         /** VersionChange */
         VersionChange: {
@@ -2024,6 +2921,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotImplementedDetail"];
+                };
+            };
+        };
+    };
+    rag_components_api_v1_rag_components_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RagComponents"];
                 };
             };
         };
@@ -2521,6 +3438,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RetrievalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotImplementedDetail"];
+                };
+            };
+        };
+    };
+    answer_api_v1_corpora__corpus_id__answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corpus_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RagRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RagResponse"];
                 };
             };
             /** @description Validation Error */

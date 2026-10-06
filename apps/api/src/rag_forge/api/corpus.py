@@ -1,7 +1,9 @@
-"""Corpus management, ingestion, inspection and retrieval routes."""
+"""Corpus management, ingestion, inspection, retrieval and answer routes."""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Annotated
 
 from fastapi import (
@@ -32,11 +34,17 @@ from rag_forge.domain.models import (
     Corpus,
     CorpusVersion,
     IngestionRecord,
+    RagRequest,
+    RagResponse,
     RetrievalRequest,
     RetrievalResponse,
 )
 from rag_forge.ingestion.extraction import EXTRACTORS
 from rag_forge.ingestion.service import DocumentNotInCorpusError, IngestionService
+from rag_forge.rag.evidence import ContextBudgetError
+from rag_forge.rag.generation import GeneratorUnavailableError
+from rag_forge.rag.grounding import GroundingUnavailableError
+from rag_forge.rag.service import RagComponentNotAvailableError, RagService
 from rag_forge.retrieval.dense import DenseIndexNotReadyError, DenseIndexService
 from rag_forge.retrieval.embedding import EmbedderUnavailableError
 from rag_forge.retrieval.hybrid import ComponentMismatchError
@@ -212,18 +220,11 @@ def list_ingestions(corpus_id: str, request: Request) -> list[IngestionRecord]:
     return _store(request).list_ingestions(_corpus(request, corpus_id).id)
 
 
-@router.post(
-    "/corpora/{corpus_id}/retrieve",
-    response_model=RetrievalResponse,
-    tags=["retrieval"],
-    responses={501: {"model": NotImplementedDetail}},
-)
-def retrieve(corpus_id: str, body: RetrievalRequest, request: Request) -> RetrievalResponse:
-    """Rank chunks of one corpus version for a query. Defaults to the current version."""
-    corpus = _corpus(request, corpus_id)
-    service: RetrievalService = request.app.state.retrieval
+@contextmanager
+def _retrieval_errors() -> Iterator[None]:
+    """Map retrieval failures to HTTP errors. Shared by /retrieve and /answer."""
     try:
-        return service.retrieve(corpus.id, body)
+        yield
     except CorpusVersionNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except StrategyNotAvailableError as exc:
@@ -257,6 +258,60 @@ def retrieve(corpus_id: str, body: RetrievalRequest, request: Request) -> Retrie
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except IndexIntegrityError as exc:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+@router.post(
+    "/corpora/{corpus_id}/retrieve",
+    response_model=RetrievalResponse,
+    tags=["retrieval"],
+    responses={501: {"model": NotImplementedDetail}},
+)
+def retrieve(corpus_id: str, body: RetrievalRequest, request: Request) -> RetrievalResponse:
+    """Rank chunks of one corpus version for a query. Defaults to the current version."""
+    corpus = _corpus(request, corpus_id)
+    service: RetrievalService = request.app.state.retrieval
+    with _retrieval_errors():
+        return service.retrieve(corpus.id, body)
+
+
+@router.post(
+    "/corpora/{corpus_id}/answer",
+    response_model=RagResponse,
+    tags=["rag"],
+    responses={501: {"model": NotImplementedDetail}},
+)
+def answer(corpus_id: str, body: RagRequest, request: Request) -> RagResponse:
+    """Answer a query from one corpus version with cited, claim-level grounded evidence.
+
+    Runs retrieval exactly as /retrieve does (manual or adaptive), selects evidence, assembles
+    the context, generates, extracts claims and measures their grounding. With
+    `generation: null` it stops after context assembly. Every failure is an error response:
+    an answer is never returned with its grounding missing.
+    """
+    corpus = _corpus(request, corpus_id)
+    service: RagService = request.app.state.rag
+    try:
+        with _retrieval_errors():
+            return service.answer(corpus.id, body)
+    except RagComponentNotAvailableError as exc:
+        capability = "Generator" if exc.kind == "generator" else "Grounding verifier"
+        detail = NotImplementedDetail(capability=capability, message=str(exc))
+        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail=detail.model_dump()) from exc
+    except ContextBudgetError as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={"component": "context", "message": str(exc)},
+        ) from exc
+    except GeneratorUnavailableError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"component": "generator", "message": str(exc)},
+        ) from exc
+    except GroundingUnavailableError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"component": "grounding", "message": str(exc)},
+        ) from exc
 
 
 def _dense(request: Request) -> DenseIndexService:

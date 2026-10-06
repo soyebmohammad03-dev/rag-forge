@@ -15,14 +15,18 @@ from rag_forge.api.schemas import (
     ExperimentCreate,
     HealthStatus,
     NotImplementedDetail,
+    RagComponents,
     RetrievalEvaluationRequest,
     RetrievalEvaluationResponse,
     RouterRequest,
     RouterResponse,
+    VerifierDescriptor,
 )
 from rag_forge.domain.models import (
+    EvidenceParams,
     Experiment,
     ExperimentRun,
+    GenerationParams,
     Metric,
     RetrievalMode,
     RetrievalRequest,
@@ -30,6 +34,7 @@ from rag_forge.domain.models import (
 from rag_forge.evaluation import retrieval_metrics as rm
 from rag_forge.ingestion.service import CorpusNotFoundError
 from rag_forge.provenance.environment import capture_environment
+from rag_forge.rag.service import RagService
 from rag_forge.retrieval.rerank import Reranker
 from rag_forge.retrieval.service import CorpusVersionNotFoundError, RetrievalService
 from rag_forge.router.service import RouterComponentNotAvailableError
@@ -62,9 +67,7 @@ def health(request: Request) -> HealthStatus:
         ComponentHealth(
             name="vector_index", state=ComponentState.NOT_CONFIGURED, detail="no index backend"
         ),
-        ComponentHealth(
-            name="llm_provider", state=ComponentState.NOT_CONFIGURED, detail="no provider"
-        ),
+        _generator_health(request.app.state.rag),
         _reranker_health(request.app.state.reranker),
     ]
     healthy = all(c.state != ComponentState.ERROR for c in components)
@@ -82,6 +85,18 @@ def _reranker_health(reranker: Reranker) -> ComponentHealth:
     spec = reranker.spec
     return ComponentHealth(
         name="reranker", state=ComponentState.OK, detail=f"{spec.model}@{spec.revision[:8]}"
+    )
+
+
+def _generator_health(rag: RagService) -> ComponentHealth:
+    """Configured, not loaded: health never triggers a model download."""
+    d = rag.generators[rag.default_generator].describe()
+    revision = f"@{d.revision[:8]}" if d.revision else ""
+    state = "loaded" if d.loaded else "loads on first answer"
+    return ComponentHealth(
+        name="llm_provider",
+        state=ComponentState.OK,
+        detail=f"{d.model}{revision} ({d.provider}, {state})",
     )
 
 
@@ -116,6 +131,31 @@ def decide(body: RouterRequest, request: Request) -> RouterResponse:
         detail = NotImplementedDetail(capability="Router", message=str(exc))
         raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail=detail.model_dump()) from exc
     return RouterResponse(query=query, request=routed, routing=routing)
+
+
+# --- RAG -----------------------------------------------------------------------
+
+
+@router.get("/rag/components", response_model=RagComponents, tags=["rag"])
+def rag_components(request: Request) -> RagComponents:
+    rag: RagService = request.app.state.rag
+    return RagComponents(
+        generators=[g.describe() for g in rag.generators.values()],
+        default_generator=rag.default_generator,
+        verifiers=[
+            VerifierDescriptor(
+                name=v.name,
+                version=v.version,
+                detects_contradiction=v.detects_contradiction,
+                thresholds=v.thresholds(),
+                config_hash=v.config_hash(),
+            )
+            for v in rag.verifiers.values()
+        ],
+        prompt_template=rag.template.id,
+        evidence_defaults=EvidenceParams(),
+        generation_defaults=GenerationParams(generator=rag.default_generator),
+    )
 
 
 # --- Experiments --------------------------------------------------------------

@@ -27,8 +27,9 @@ Packages exist only when they contain code. Current and planned:
 | `retrieval` | `Retriever` contract, BM25, `Embedder` + ONNX embedder, dense index + retriever, `FusionStrategy` (RRF, weighted), `HybridRetriever`, `Reranker` + ONNX cross-encoder | BM25, dense, hybrid and reranking present (see [retrieval.md](retrieval.md)) |
 | `experiments` | Run orchestration, ablation grids | Phase 3 |
 | `router` | `QueryAnalyzer` + heuristic analyzer, `RouterPolicy` + rule baseline, `AdaptiveRouter` | Present (see [router.md](router.md)) |
+| `rag` | Evidence selection, context assembly, prompt contract, `Generator` + ONNX causal LM / extractive / OpenAI-compatible, claim extraction, `GroundingVerifier` + lexical-semantic baseline, `RagService` | Present (see [rag.md](rag.md)) |
 | `knowledge` | Entities, relations, graph retrieval support | Later |
-| `models` | Provider adapters for rerankers and LLMs (embeddings live in `retrieval/embedding.py`) | With the first dependency |
+| `models` | Shared provider adapters (embeddings, reranking and generation currently live in `retrieval/` and `rag/`) | When a second consumer appears |
 
 Dependency direction: `api → services → domain`. `domain` imports nothing from the project.
 
@@ -54,7 +55,7 @@ Dependency direction: `api → services → domain`. `domain` imports nothing fr
 
 ## Frontend structure
 
-- `app/`: routing only. Built areas have their own routes (`/corpus`, `/corpus/[corpusId]`, `/retrieval`,
+- `app/`: routing only. Built areas have their own routes (`/corpus`, `/corpus/[corpusId]`, `/retrieval`, `/router`, `/evidence`,
   `/system`); planned areas share one dynamic route (`[area]`) driven by `lib/areas.ts`.
 - `components/ui/`: the design system (panel, button, badge, tabs, tooltip, dialog/drawer,
   data table, metric card, sparkline, chart theme, graph node, pipeline steps, states).

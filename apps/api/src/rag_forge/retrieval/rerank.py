@@ -21,11 +21,11 @@ from pathlib import Path
 from typing import Protocol
 
 import numpy as np
-import onnxruntime as ort
 from huggingface_hub import hf_hub_download
 from tokenizers import Tokenizer
 
 from rag_forge.domain.models import RankMovement, RerankDetail, RerankerInfo, RerankerSpec
+from rag_forge.onnx_runtime import ort
 from rag_forge.retrieval.base import Candidate
 
 

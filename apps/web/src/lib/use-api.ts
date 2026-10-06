@@ -62,3 +62,4 @@ export const fetchEnvironment = () => api.GET("/api/v1/provenance/environment");
 export const fetchExperiments = () => api.GET("/api/v1/experiments");
 export const fetchCorpora = () => api.GET("/api/v1/corpora");
 export const fetchFormats = () => api.GET("/api/v1/ingestion/formats");
+export const fetchRagComponents = () => api.GET("/api/v1/rag/components");

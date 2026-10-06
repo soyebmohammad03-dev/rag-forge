@@ -767,27 +767,417 @@ class RetrievalResponse(Model):
     reranking: RerankReport | None = Field(default=None, description="Reranked requests only")
 
 
+# --- Evidence, generation & grounding -----------------------------------------
+
+
+class EvidenceParams(Model):
+    """How the evidence stage picks passages from the final ranking. Deterministic."""
+
+    max_items: int = Field(default=5, ge=1, le=20, description="Evidence budget in passages")
+    max_context_tokens: int = Field(
+        default=1500, ge=64, le=16_000, description="Evidence budget in generator tokens"
+    )
+    max_per_document: int | None = Field(
+        default=2, ge=1, le=20, description="Diversity cap per document version; null = no cap"
+    )
+    near_duplicate_threshold: float | None = Field(
+        default=0.8,
+        gt=0,
+        le=1,
+        description="Skip a passage whose term-set Jaccard with a selected one reaches this; "
+        "null = keep near-duplicates",
+    )
+    min_score: float | None = Field(
+        default=None, description="Skip passages whose final ranking score is below this"
+    )
+
+    def config_hash(self) -> str:
+        return canonical_hash(self.model_dump(mode="json"))
+
+
+class SelectionOutcome(StrEnum):
+    SELECTED = "selected"
+    NEAR_DUPLICATE = "near_duplicate"  # too similar to an already selected passage
+    DOCUMENT_CAP = "document_cap"  # its document already supplied max_per_document passages
+    BELOW_MIN_SCORE = "below_min_score"
+    OVER_TOKEN_BUDGET = "over_token_budget"  # would not fit in the remaining context budget
+    OVER_ITEM_BUDGET = "over_item_budget"  # max_items already selected
+
+
+class EvidenceRetrieval(Model):
+    """How retrieval and reranking saw a passage. Copied from the hit, never recomputed."""
+
+    strategy: RetrievalStrategy
+    retriever: str
+    rank: int = Field(ge=1, description="Final rank (after reranking, if any)")
+    score: float = Field(description="Final score (the reranker's, if reranked)")
+    upstream_rank: int | None = Field(description="Rank before reranking; null if not reranked")
+    upstream_score: float | None = Field(description="Retriever score before reranking")
+    reranker_score: float | None
+    configuration_hash: str = Field(description="The retrieval configuration that ranked it")
+
+
 class Evidence(Model):
-    id: str = Field(default_factory=lambda: new_id("evd"))
+    """A passage selected to support an answer, pinned to the exact corpus version it came from."""
+
+    id: str = Field(
+        description="Stable: a hash of corpus version, chunk and exact span, so equal evidence "
+        "has an equal id across runs"
+    )
+    citation: str = Field(description="The label the generator cites, e.g. E1")
+    corpus_id: str
+    corpus_version: int
+    chunking_hash: str
+    document_id: str
+    document_version_id: str
+    document_version: int
+    filename: str
+    media_type: str
     chunk_id: str
-    char_start: int = Field(ge=0)
-    char_end: int = Field(ge=0)
-    text: str
+    chunk_ordinal: int
+    char_start: int = Field(ge=0, description="Span in the extracted document text (inclusive)")
+    char_end: int = Field(ge=0, description="Span in the extracted document text (exclusive)")
+    text: str = Field(description="Exactly the text placed in the generation context")
+    text_sha256: str
+    token_count: int = Field(description="Generator tokens this passage uses in the context")
+    retrieval: EvidenceRetrieval
+    selection_rank: int = Field(ge=1, description="Order of selection, 1 = first selected")
+    selection_score: float = Field(description="The final ranking score selection ordered by")
+    selection_reason: str = Field(description="Why it was selected, with measured values")
     origin: ContentOrigin = ContentOrigin.RETRIEVED
 
 
-class ClaimSupport(StrEnum):
+class SelectionDecision(Model):
+    """One ranked candidate as the evidence stage judged it, selected or not."""
+
+    chunk_id: str
+    document_id: str
+    filename: str
+    rank: int
+    score: float
+    outcome: SelectionOutcome
+    detail: str
+    token_count: int | None = Field(description="Generator tokens; null if never measured")
+    evidence_id: str | None = Field(description="Set when selected")
+    similar_to: str | None = Field(default=None, description="Near duplicates: the evidence id")
+    similarity: float | None = Field(default=None, description="Near duplicates: the Jaccard")
+
+
+class EvidenceSelection(Model):
+    params: EvidenceParams
+    params_hash: str
+    selector: str
+    candidates: int = Field(description="Ranked hits the selector considered")
+    selected: list[Evidence]
+    decisions: list[SelectionDecision] = Field(description="Every candidate, in ranking order")
+    tokens_used: int
+    tokenizer: str = Field(description="The tokenizer that measured the budget")
+    selection_hash: str = Field(description="Hash of params and selected evidence ids, in order")
+    latency_ms: float
+
+
+class ChatRole(StrEnum):
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class ChatMessage(Model):
+    role: ChatRole
+    content: str
+
+
+class ContextBlock(Model):
+    citation: str
+    evidence_id: str
+    header: str = Field(description="The source line shown to the generator")
+    text: str
+    token_count: int
+
+
+class GenerationContext(Model):
+    """Exactly what the generator saw: the evidence blocks and the rendered prompt."""
+
+    corpus_id: str
+    corpus_version: int
+    prompt_template: str = Field(description="name@version of the grounded prompt contract")
+    blocks: list[ContextBlock]
+    evidence_text: str = Field(description="The rendered evidence section, blocks in order")
+    messages: list[ChatMessage]
+    context_tokens: int = Field(description="Generator tokens of the evidence section")
+    max_context_tokens: int
+    tokenizer: str
+    context_hash: str = Field(
+        description="Hash of corpus version, template, evidence ids and exact evidence text"
+    )
+    prompt_hash: str = Field(description="Hash of the rendered messages")
+
+
+DEFAULT_GENERATOR = "onnx-community/Qwen2.5-0.5B-Instruct"
+
+
+class GeneratorSpec(Model):
+    """What determines a local generator's output. Its hash is part of every answer's provenance."""
+
+    provider: str = "onnx-causal-lm"
+    model: str = DEFAULT_GENERATOR
+    revision: str = Field(
+        default="cc5cc01a65cc3ff17bdb73a7de33d879f62599b0", description="Pinned model commit"
+    )
+    weights_file: str = Field(
+        default="onnx/model_q4.onnx", description="ONNX export to load (4-bit weights)"
+    )
+    chat_template: str = Field(default="chatml", description="How messages become a prompt")
+
+    def config_hash(self) -> str:
+        return canonical_hash(self.model_dump(mode="json"))
+
+
+class GeneratorInfo(Model):
+    """The spec plus facts read from the loaded model (or the remote endpoint's identity)."""
+
+    name: str = Field(description="The registered generator name requests use")
+    provider: str
+    model: str
+    revision: str | None
+    config_hash: str
+    local: bool = Field(description="Runs in this process; false = an HTTP endpoint")
+    deterministic_at_zero_temperature: bool
+    max_context_tokens: int | None
+    tokenizer: str
+    weights_sha256: str | None
+    details: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+
+
+class GeneratorDescriptor(Model):
+    """A registered generator, described without loading it."""
+
+    name: str
+    provider: str
+    model: str
+    revision: str | None
+    config_hash: str = Field(description="Equals GeneratorInfo.config_hash once loaded")
+    local: bool
+    loaded: bool
+
+
+class GenerationParams(Model):
+    generator: str | None = Field(
+        default=None, description="A registered generator; null = the configured default"
+    )
+    max_new_tokens: int = Field(default=200, ge=1, le=1024)
+    temperature: float = Field(default=0.0, ge=0, le=2, description="0 = greedy, reproducible")
+    top_p: float = Field(default=1.0, gt=0, le=1, description="Sampling only")
+    seed: int = Field(default=0, ge=0, description="Sampling only; recorded so samples replay")
+
+    def effective(self) -> GenerationParams:
+        """Blank out sampling parameters greedy decoding ignores, so they cannot change hashes."""
+        if self.temperature == 0:
+            return self.model_copy(update={"top_p": 1.0, "seed": 0})
+        return self
+
+
+class FinishReason(StrEnum):
+    STOP = "stop"  # the model ended its answer
+    LENGTH = "length"  # max_new_tokens reached; the answer may be cut off
+
+
+class GenerationRecord(Model):
+    generator: GeneratorInfo
+    params: GenerationParams = Field(description="Effective parameters")
+    params_hash: str
+    prompt_hash: str
+    raw_text: str = Field(description="The generator's output, verbatim")
+    answer_hash: str
+    finish_reason: FinishReason
+    prompt_tokens: int | None
+    completion_tokens: int | None
+    deterministic: bool = Field(description="Greedy decoding of a local model: replays exactly")
+    load_ms: float = Field(description="Model load paid by this request (0 when already loaded)")
+    latency_ms: float = Field(description="Generation time, excluding the model load")
+    origin: ContentOrigin = ContentOrigin.GENERATED
+
+
+class ClaimKind(StrEnum):
+    FACTUAL = "factual"  # asserts something checkable against evidence
+    ABSTENTION = "abstention"  # says the evidence is insufficient
+    NON_ASSERTIVE = "non_assertive"  # no content terms to check (e.g. "Here is the answer:")
+
+
+class SupportStatus(StrEnum):
     SUPPORTED = "supported"
-    CONTRADICTED = "contradicted"
-    UNVERIFIED = "unverified"
+    WEAKLY_SUPPORTED = "weakly_supported"
+    UNSUPPORTED = "unsupported"  # no evidence was measured to support it (not "false")
+    CONTRADICTED = "contradicted"  # only verifiers that can measure contradiction emit this
+    NOT_APPLICABLE = "not_applicable"  # abstentions and non-assertive sentences
+
+
+class Citation(Model):
+    label: str = Field(description="As written, e.g. E2")
+    evidence_id: str | None = Field(description="Null when the label names no supplied evidence")
+    valid: bool
+    char_start: int = Field(description="Offset of the marker in the raw answer")
+    char_end: int
+
+
+class EvidenceSupport(Model):
+    """How well one evidence passage supports one claim, as measured by the verifier."""
+
+    evidence_id: str
+    citation: str
+    cited: bool = Field(description="The generator cited this passage for the claim")
+    lexical_coverage: float = Field(description="Share of the claim's content terms in the passage")
+    semantic_similarity: float = Field(description="Best cosine of claim vs passage sentences")
+    best_sentence: str = Field(description="The passage sentence most similar to the claim")
+    score: float
+    status: SupportStatus
 
 
 class Claim(Model):
-    id: str = Field(default_factory=lambda: new_id("clm"))
-    text: str
+    id: str = Field(description="Stable: hash of the answer hash and the claim's position")
+    index: int
+    text: str = Field(description="The sentence with citation markers removed")
+    raw_text: str = Field(description="The sentence as generated, markers included")
+    char_start: int
+    char_end: int
+    kind: ClaimKind
+    content_terms: list[str] = Field(description="The terms the verifier checks")
+    citations: list[Citation]
+    cited_evidence_ids: list[str] = Field(description="What the generator cited (generated)")
+    supporting_evidence_ids: list[str] = Field(
+        description="What the verifier measured as supporting (measured)"
+    )
+    support: SupportStatus
+    support_score: float | None = Field(description="Null when not applicable")
+    missing_terms: list[str] = Field(description="Content terms absent from the supporting text")
+    unmatched_numbers: list[str] = Field(description="Numbers absent from the supporting text")
+    evidence: list[EvidenceSupport] = Field(description="Every evidence passage, best first")
+    flags: list[str] = Field(
+        description="e.g. uncited, invalid_citation, cited_not_supporting, number_mismatch, "
+        "negation_mismatch, multi_passage"
+    )
+    rationale: str
     origin: ContentOrigin = ContentOrigin.GENERATED
-    evidence_ids: list[str] = Field(default_factory=list)
-    support: ClaimSupport = ClaimSupport.UNVERIFIED
+
+
+class GroundingParams(Model):
+    verifier: str = Field(default="lexical-semantic", description="A registered verifier")
+
+
+class AnswerGrounding(StrEnum):
+    GROUNDED = "grounded"  # every factual claim supported
+    PARTIALLY_GROUNDED = "partially_grounded"  # some factual claims weak or unsupported
+    UNGROUNDED = "ungrounded"  # no factual claim supported or weakly supported
+    ABSTAINED = "abstained"  # the answer only says the evidence is insufficient
+    NO_CLAIMS = "no_claims"
+
+
+class GroundingReport(Model):
+    verifier: str
+    verifier_version: str
+    config_hash: str
+    thresholds: dict[str, float]
+    detects_contradiction: bool = Field(
+        description="False: 'contradicted' is never emitted, absence of support is 'unsupported'"
+    )
+    status: AnswerGrounding
+    claims: int
+    factual_claims: int
+    supported: int
+    weakly_supported: int
+    unsupported: int
+    contradicted: int
+    abstentions: int
+    non_assertive: int
+    grounding_score: float | None = Field(
+        description="(supported + 0.5 x weakly supported) / factual claims; null if none"
+    )
+    evidence_coverage: float | None = Field(
+        description="Share of selected evidence that supports at least one claim"
+    )
+    citation_coverage: float | None = Field(
+        description="Share of factual claims with at least one valid citation"
+    )
+    citation_precision: float | None = Field(
+        description="Share of valid citations whose passage the verifier found supporting"
+    )
+    invalid_citations: int = Field(description="Citations naming evidence that was not supplied")
+    grounding_hash: str = Field(description="Hash of every claim's measured support")
+    load_ms: float = Field(description="Verifier model load paid by this request (0 if loaded)")
+    latency_ms: float = Field(description="Claim extraction and verification, excluding the load")
+    origin: ContentOrigin = ContentOrigin.MEASURED
+
+
+class AnswerStatus(StrEnum):
+    ANSWERED = "answered"  # generated an answer with at least one factual claim
+    ABSTAINED = "abstained"  # the generator said the evidence is insufficient
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"  # no usable evidence; generator not called
+    NOT_GENERATED = "not_generated"  # the request stopped after context assembly
+
+
+class RagRequest(Model):
+    retrieval: RetrievalRequest
+    evidence: EvidenceParams = Field(default_factory=EvidenceParams)
+    generation: GenerationParams | None = Field(
+        default_factory=GenerationParams,
+        description="null = stop after evidence selection and context assembly",
+    )
+    grounding: GroundingParams = Field(default_factory=GroundingParams)
+
+
+class PipelineStage(Model):
+    """One link of the provenance chain: what the stage was, its identity and its cost."""
+
+    stage: str
+    hash: str | None = Field(description="Identity of the stage's output")
+    config_hash: str | None = Field(description="Identity of the stage's configuration")
+    latency_ms: float | None
+    origin: ContentOrigin
+    deterministic: bool = Field(description="Equal inputs and configuration give equal output")
+    detail: str
+
+
+class RagConfiguration(Model):
+    """Everything that determines an answer, resolved. Its hash identifies the pipeline."""
+
+    retrieval: RetrievalConfiguration
+    evidence: EvidenceParams
+    prompt_template: str | None
+    generator: str | None
+    generator_config_hash: str | None
+    generation: GenerationParams | None
+    verifier: str | None
+    verifier_config_hash: str | None
+
+    def config_hash(self) -> str:
+        return canonical_hash(self.model_dump(mode="json"))
+
+
+class RagProvenance(Model):
+    configuration: RagConfiguration
+    configuration_hash: str
+    chain: list[PipelineStage]
+    environment: EnvironmentSnapshot
+    elapsed_ms: float
+    answered_at: datetime = Field(default_factory=utcnow)
+
+
+class GeneratedAnswer(Model):
+    text: str = Field(description="The raw generated answer, citation markers included")
+    generation: GenerationRecord
+
+
+class RagResponse(Model):
+    query: Query
+    status: AnswerStatus
+    retrieval: RetrievalResponse
+    evidence: EvidenceSelection
+    context: GenerationContext | None = Field(description="Null when no evidence was usable")
+    answer: GeneratedAnswer | None
+    claims: list[Claim]
+    grounding: GroundingReport | None
+    provenance: RagProvenance
+    warnings: list[str] = Field(default_factory=list)
 
 
 # --- Configuration & routing -------------------------------------------------

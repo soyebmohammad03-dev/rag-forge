@@ -18,6 +18,9 @@ from rag_forge.domain.models import (
     DocumentVersion,
     EmbedderSpec,
     EnvironmentSnapshot,
+    EvidenceParams,
+    GenerationParams,
+    GeneratorDescriptor,
     Metric,
     Query,
     RetrievalRequest,
@@ -144,3 +147,22 @@ class RetrievalEvaluationResponse(BaseModel):
 
 class EnvironmentResponse(BaseModel):
     environment: EnvironmentSnapshot
+
+
+class VerifierDescriptor(BaseModel):
+    name: str
+    version: int
+    detects_contradiction: bool
+    thresholds: dict[str, float]
+    config_hash: str
+
+
+class RagComponents(BaseModel):
+    """What the answer pipeline can run, described without loading any model."""
+
+    generators: list[GeneratorDescriptor]
+    default_generator: str
+    verifiers: list[VerifierDescriptor]
+    prompt_template: str
+    evidence_defaults: EvidenceParams
+    generation_defaults: GenerationParams

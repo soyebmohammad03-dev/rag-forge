@@ -7,7 +7,7 @@ def test_health_reports_components_honestly(client: TestClient) -> None:
     states = {c["name"]: c["state"] for c in body["components"]}
     assert states["api"] == "ok"
     assert states["vector_index"] == "not_configured"
-    assert states["llm_provider"] == "not_configured"
+    assert states["llm_provider"] == "ok"  # configured; loaded lazily on the first answer
 
 
 def test_experiment_rejects_unknown_corpus(client: TestClient) -> None:
