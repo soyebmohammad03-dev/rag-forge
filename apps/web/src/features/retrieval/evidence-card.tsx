@@ -1,6 +1,6 @@
 "use client";
 
-import type { RetrievalHit } from "@rag-forge/shared";
+import type { RerankCandidate, RetrievalHit } from "@rag-forge/shared";
 import { ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import { OriginBadge } from "@/components/ui/badge";
 import { STRATEGY_COLOR } from "@/components/ui/chart";
 import { cn } from "@/lib/cn";
 import { FusionExplain, byDisplayOrder } from "./fusion-explain";
+import { MovementBadge, MovementExplain } from "./rerank-analysis";
 
 const norm = (w: string) => w.normalize("NFKC").toLocaleLowerCase();
 
@@ -35,6 +36,8 @@ const SCORE_TITLE: Record<string, string> = {
   dense: "Cosine similarity to the query embedding",
   hybrid: "Fused score (see the fusion explanation)",
 };
+const UPSTREAM: Record<string, string> = { sparse: "BM25", dense: "Dense", hybrid: "Hybrid" };
+const RERANK_COLOR = STRATEGY_COLOR.rerank;
 
 export function EvidenceCard({
   hit,
@@ -42,19 +45,33 @@ export function EvidenceCard({
   corpusId,
   index,
   rrfK,
+  pool,
+  scoreRange,
 }: {
   hit: RetrievalHit;
   topScore: number;
   corpusId: string;
   index: number;
   rrfK?: number;
+  pool?: RerankCandidate[]; // the scored candidate pool, when the request was reranked
+  scoreRange?: [number, number]; // reranker scores can be negative, so bars use the pool's range
 }) {
-  const { result, chunk, fusion } = hit;
-  const [open, setOpen] = useState(false);
+  const { result, chunk, fusion, rerank } = hit;
+  const [open, setOpen] = useState<"fusion" | "rerank" | null>(null);
+  const toggle = (what: "fusion" | "rerank") => setOpen((o) => (o === what ? null : what));
   const pages = chunk.metadata.page_start as number | undefined;
   const pageEnd = chunk.metadata.page_end as number | undefined;
-  const relative = topScore > 0 ? result.score / topScore : 0;
+  const relative =
+    rerank && scoreRange
+      ? scoreRange[1] > scoreRange[0]
+        ? (result.score - scoreRange[0]) / (scoreRange[1] - scoreRange[0])
+        : 1
+      : topScore > 0
+        ? result.score / topScore
+        : 0;
   const color = STRATEGY_COLOR[result.strategy] ?? "var(--color-fg-muted)";
+  const scoreColor = rerank ? RERANK_COLOR : color;
+  const upstream = UPSTREAM[result.strategy] ?? result.strategy;
   return (
     <motion.article
       layout="position"
@@ -79,17 +96,21 @@ export function EvidenceCard({
           {pages !== undefined && ` · p.${pages}${pageEnd !== pages ? `–${pageEnd}` : ""}`}
         </span>
         <span className="ml-auto flex items-center gap-2">
+          {rerank && <MovementBadge delta={rerank.rank_delta} entered={rerank.entered_top_k} />}
           <span className="relative h-1 w-16 overflow-hidden rounded-full bg-surface-3" aria-hidden>
             <motion.span
               className="absolute inset-y-0 left-0 rounded-full"
-              style={{ background: color }}
+              style={{ background: scoreColor }}
               initial={{ width: 0 }}
               animate={{ width: `${relative * 100}%` }}
               transition={{ delay: Math.min(index, 10) * 0.035 + 0.1, duration: 0.4, ease: "easeOut" }}
             />
           </span>
-          <span className="num font-mono text-xs text-fg" title={SCORE_TITLE[result.strategy]}>
-            {result.score.toFixed(fusion?.method === "rrf" ? 5 : 3)}
+          <span
+            className="num font-mono text-xs text-fg"
+            title={rerank ? "Cross-encoder relevance score (reranker logit; only comparable within this query)" : SCORE_TITLE[result.strategy]}
+          >
+            {result.score.toFixed(!rerank && fusion?.method === "rrf" ? 5 : 3)}
           </span>
           <OriginBadge origin="retrieved" />
         </span>
@@ -98,6 +119,26 @@ export function EvidenceCard({
         {highlight(chunk.text, hit.matched_terms)}
       </blockquote>
       <footer className="flex flex-wrap items-center gap-1.5 pb-2.5 pr-3 font-mono text-[10px] text-fg-subtle">
+        {rerank && (
+          <>
+            <span className="rounded bg-surface-3 px-1.5 py-0.5" style={{ color }} title="Upstream rank and score, before reranking">
+              {upstream} #{rerank.original_rank} · {rerank.original_score.toFixed(fusion?.method === "rrf" ? 5 : 3)}
+            </span>
+            <span className="rounded bg-surface-3 px-1.5 py-0.5" style={{ color: RERANK_COLOR }}>
+              rerank #{rerank.final_rank} · {rerank.reranker_score.toFixed(3)}
+            </span>
+            {pool && (
+              <button
+                type="button"
+                aria-expanded={open === "rerank"}
+                onClick={() => toggle("rerank")}
+                className="ml-1 mr-2 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-fg-muted ring-1 ring-inset ring-line-strong transition-colors hover:text-fg"
+              >
+                explain movement <ChevronDown className={cn("size-3 transition-transform", open === "rerank" && "rotate-180")} />
+              </button>
+            )}
+          </>
+        )}
         {fusion ? (
           <>
             {byDisplayOrder(fusion.components).map((c) => (
@@ -107,15 +148,15 @@ export function EvidenceCard({
             ))}
             <button
               type="button"
-              aria-expanded={open}
-              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open === "fusion"}
+              onClick={() => toggle("fusion")}
               className="ml-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-fg-muted ring-1 ring-inset ring-line-strong transition-colors hover:text-fg"
             >
-              explain fusion <ChevronDown className={cn("size-3 transition-transform", open && "rotate-180")} />
+              explain fusion <ChevronDown className={cn("size-3 transition-transform", open === "fusion" && "rotate-180")} />
             </button>
           </>
         ) : result.strategy === "dense" ? (
-          <span>semantic match · cosine similarity, no term overlap required</span>
+          !rerank && <span>semantic match · cosine similarity, no term overlap required</span>
         ) : (
           <>
             matched:
@@ -127,7 +168,7 @@ export function EvidenceCard({
         <span className="ml-auto" title={result.chunk_id}>{result.chunk_id}</span>
       </footer>
       <AnimatePresence initial={false}>
-        {open && fusion && (
+        {open && (open === "fusion" ? fusion : rerank && pool) && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -136,7 +177,11 @@ export function EvidenceCard({
             className="overflow-hidden border-t border-line/70"
           >
             <div className="py-3 pr-4">
-              <FusionExplain fusion={fusion} rank={result.rank} rrfK={rrfK} />
+              {open === "fusion" && fusion ? (
+                <FusionExplain fusion={fusion} rank={rerank?.original_rank ?? result.rank} rrfK={rrfK} />
+              ) : (
+                pool && <MovementExplain pool={pool} chunkId={result.chunk_id} upstream={upstream} />
+              )}
             </div>
           </motion.div>
         )}

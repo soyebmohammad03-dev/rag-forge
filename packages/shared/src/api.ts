@@ -891,7 +891,7 @@ export interface components {
             method: components["schemas"]["FusionMethod"];
             /**
              * Score
-             * @description Final fused score (the hit's result.score)
+             * @description Fused score (the hit's result.score unless reranked)
              */
             score: number;
             /** Components */
@@ -1080,6 +1080,192 @@ export interface components {
             created_at: string;
         };
         /**
+         * RankMovement
+         * @enum {string}
+         */
+        RankMovement: "promoted" | "demoted" | "unchanged";
+        /**
+         * RerankCandidate
+         * @description One scored candidate, including those that did not make the final top-k.
+         */
+        RerankCandidate: {
+            /** Chunk Id */
+            chunk_id: string;
+            /** Document Id */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /** Chunk Ordinal */
+            chunk_ordinal: number;
+            rerank: components["schemas"]["RerankDetail"];
+        };
+        /**
+         * RerankConfiguration
+         * @description The resolved reranking step: which model scored how many upstream candidates.
+         */
+        RerankConfiguration: {
+            reranker: components["schemas"]["RerankerSpec"];
+            /** Candidate K */
+            candidate_k: number;
+        };
+        /**
+         * RerankDetail
+         * @description How the reranker moved one candidate. Ranks are 1-based positions in the candidate pool.
+         */
+        RerankDetail: {
+            /**
+             * Original Rank
+             * @description Rank in the upstream retrieval
+             */
+            original_rank: number;
+            /**
+             * Original Score
+             * @description The upstream retriever's own score
+             */
+            original_score: number;
+            /** Reranker Score */
+            reranker_score: number;
+            /**
+             * Final Rank
+             * @description Rank after reranking the whole candidate pool
+             */
+            final_rank: number;
+            /**
+             * Rank Delta
+             * @description original_rank - final_rank; positive = moved up
+             */
+            rank_delta: number;
+            movement: components["schemas"]["RankMovement"];
+            /**
+             * Entered Top K
+             * @description In the final top-k but not the upstream top-k
+             */
+            entered_top_k: boolean;
+            /**
+             * Left Top K
+             * @description In the upstream top-k but not the final top-k
+             */
+            left_top_k: boolean;
+        };
+        /** RerankParams */
+        RerankParams: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Model
+             * @description A registered reranker model
+             * @default cross-encoder/ms-marco-MiniLM-L-6-v2
+             */
+            model: string;
+            /**
+             * Candidate K
+             * @description Upstream candidates the reranker scores
+             * @default 50
+             */
+            candidate_k: number;
+        };
+        /** RerankProvenance */
+        RerankProvenance: {
+            /** Reranker */
+            reranker: string;
+            info: components["schemas"]["RerankerInfo"];
+            /** Reranker Config Hash */
+            reranker_config_hash: string;
+            /** Candidate K */
+            candidate_k: number;
+            /** Final Top K */
+            final_top_k: number;
+            /**
+             * Candidates Scored
+             * @description May be below candidate_k on small corpora
+             */
+            candidates_scored: number;
+            /** @description The unreranked retrieval that produced the pool (top_k = candidate_k) */
+            upstream_configuration: components["schemas"]["RetrievalConfiguration"];
+            /** Upstream Configuration Hash */
+            upstream_configuration_hash: string;
+            /**
+             * Latency Ms
+             * @description Scoring time only; excludes the one-time model load
+             */
+            latency_ms: number;
+            /**
+             * Statistics
+             * @description promoted, demoted, unchanged, entered_top_k, left_top_k over the whole pool
+             */
+            statistics: {
+                [key: string]: number;
+            };
+        };
+        /** RerankReport */
+        RerankReport: {
+            /**
+             * Candidates
+             * @description The whole scored pool, by final rank
+             */
+            candidates: components["schemas"]["RerankCandidate"][];
+        };
+        /**
+         * RerankerInfo
+         * @description The spec plus facts read from the loaded model files.
+         */
+        RerankerInfo: {
+            spec: components["schemas"]["RerankerSpec"];
+            /** Config Hash */
+            config_hash: string;
+            /**
+             * Scoring
+             * @description How a (query, passage) pair becomes a score
+             */
+            scoring: string;
+            /**
+             * Activation
+             * @description Applied to the model's single logit: identity or sigmoid
+             */
+            activation: string;
+            /** Max Seq Length */
+            max_seq_length: number;
+            /** Truncation */
+            truncation: string;
+            /** Weights Sha256 */
+            weights_sha256: string;
+        };
+        /**
+         * RerankerSpec
+         * @description What determines a reranker's scores. Its hash is part of every reranked configuration.
+         */
+        RerankerSpec: {
+            /**
+             * Provider
+             * @default onnx-cross-encoder
+             */
+            provider: string;
+            /**
+             * Model
+             * @default cross-encoder/ms-marco-MiniLM-L-6-v2
+             */
+            model: string;
+            /**
+             * Revision
+             * @description Pinned model commit
+             * @default 233902d25c440f23af6f7d6e94d2946bac0bee0a
+             */
+            revision: string;
+            /**
+             * Max Seq Length
+             * @description None = the model's own limit
+             */
+            max_seq_length: number | null;
+            /**
+             * Batch Size
+             * @default 32
+             */
+            batch_size: number;
+        };
+        /**
          * RetrievalConfiguration
          * @description Everything that determines a ranked result set, resolved. The unit an experiment varies.
          */
@@ -1096,6 +1282,7 @@ export interface components {
             bm25: components["schemas"]["Bm25Params-Output"] | null;
             embedder: components["schemas"]["EmbedderSpec"] | null;
             hybrid: components["schemas"]["HybridParams-Output"] | null;
+            rerank: components["schemas"]["RerankConfiguration"] | null;
         };
         /** RetrievalEvaluationRequest */
         RetrievalEvaluationRequest: {
@@ -1140,6 +1327,8 @@ export interface components {
             matched_terms: string[];
             /** @description Hybrid only */
             fusion: components["schemas"]["FusionDetail"] | null;
+            /** @description Reranked requests only */
+            rerank: components["schemas"]["RerankDetail"] | null;
         };
         /** RetrievalProvenance */
         RetrievalProvenance: {
@@ -1183,6 +1372,8 @@ export interface components {
              * Format: date-time
              */
             retrieved_at: string;
+            /** @description Reranked requests only */
+            reranking: components["schemas"]["RerankProvenance"] | null;
         };
         /** RetrievalRequest */
         RetrievalRequest: {
@@ -1202,15 +1393,21 @@ export interface components {
             strategy: components["schemas"]["RetrievalStrategy"];
             bm25?: components["schemas"]["Bm25Params-Input"];
             hybrid?: components["schemas"]["HybridParams-Input"];
+            rerank?: components["schemas"]["RerankParams"];
         };
         /** RetrievalResponse */
         RetrievalResponse: {
             query: components["schemas"]["Query"];
-            /** Hits */
+            /**
+             * Hits
+             * @description Final ranking; when reranked, result.rank and result.score are the reranker's
+             */
             hits: components["schemas"]["RetrievalHit"][];
             provenance: components["schemas"]["RetrievalProvenance"];
             /** Warnings */
             warnings: string[];
+            /** @description Reranked requests only */
+            reranking: components["schemas"]["RerankReport"] | null;
         };
         /** RetrievalResult */
         RetrievalResult: {

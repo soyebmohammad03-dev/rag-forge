@@ -2237,7 +2237,7 @@
           "score": {
             "type": "number",
             "title": "Score",
-            "description": "Final fused score (the hit's result.score)"
+            "description": "Fused score (the hit's result.score unless reranked)"
           },
           "components": {
             "items": {
@@ -2721,6 +2721,329 @@
         ],
         "title": "Query"
       },
+      "RankMovement": {
+        "type": "string",
+        "enum": [
+          "promoted",
+          "demoted",
+          "unchanged"
+        ],
+        "title": "RankMovement"
+      },
+      "RerankCandidate": {
+        "properties": {
+          "chunk_id": {
+            "type": "string",
+            "title": "Chunk Id"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "chunk_ordinal": {
+            "type": "integer",
+            "title": "Chunk Ordinal"
+          },
+          "rerank": {
+            "$ref": "#/components/schemas/RerankDetail"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "chunk_id",
+          "document_id",
+          "filename",
+          "chunk_ordinal",
+          "rerank"
+        ],
+        "title": "RerankCandidate",
+        "description": "One scored candidate, including those that did not make the final top-k."
+      },
+      "RerankConfiguration": {
+        "properties": {
+          "reranker": {
+            "$ref": "#/components/schemas/RerankerSpec"
+          },
+          "candidate_k": {
+            "type": "integer",
+            "title": "Candidate K"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reranker",
+          "candidate_k"
+        ],
+        "title": "RerankConfiguration",
+        "description": "The resolved reranking step: which model scored how many upstream candidates."
+      },
+      "RerankDetail": {
+        "properties": {
+          "original_rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Original Rank",
+            "description": "Rank in the upstream retrieval"
+          },
+          "original_score": {
+            "type": "number",
+            "title": "Original Score",
+            "description": "The upstream retriever's own score"
+          },
+          "reranker_score": {
+            "type": "number",
+            "title": "Reranker Score"
+          },
+          "final_rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Final Rank",
+            "description": "Rank after reranking the whole candidate pool"
+          },
+          "rank_delta": {
+            "type": "integer",
+            "title": "Rank Delta",
+            "description": "original_rank - final_rank; positive = moved up"
+          },
+          "movement": {
+            "$ref": "#/components/schemas/RankMovement"
+          },
+          "entered_top_k": {
+            "type": "boolean",
+            "title": "Entered Top K",
+            "description": "In the final top-k but not the upstream top-k"
+          },
+          "left_top_k": {
+            "type": "boolean",
+            "title": "Left Top K",
+            "description": "In the upstream top-k but not the final top-k"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "original_rank",
+          "original_score",
+          "reranker_score",
+          "final_rank",
+          "rank_delta",
+          "movement",
+          "entered_top_k",
+          "left_top_k"
+        ],
+        "title": "RerankDetail",
+        "description": "How the reranker moved one candidate. Ranks are 1-based positions in the candidate pool."
+      },
+      "RerankParams": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": false
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "description": "A registered reranker model",
+            "default": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+          },
+          "candidate_k": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Candidate K",
+            "description": "Upstream candidates the reranker scores",
+            "default": 50
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RerankParams"
+      },
+      "RerankProvenance": {
+        "properties": {
+          "reranker": {
+            "type": "string",
+            "title": "Reranker"
+          },
+          "info": {
+            "$ref": "#/components/schemas/RerankerInfo"
+          },
+          "reranker_config_hash": {
+            "type": "string",
+            "title": "Reranker Config Hash"
+          },
+          "candidate_k": {
+            "type": "integer",
+            "title": "Candidate K"
+          },
+          "final_top_k": {
+            "type": "integer",
+            "title": "Final Top K"
+          },
+          "candidates_scored": {
+            "type": "integer",
+            "title": "Candidates Scored",
+            "description": "May be below candidate_k on small corpora"
+          },
+          "upstream_configuration": {
+            "$ref": "#/components/schemas/RetrievalConfiguration",
+            "description": "The unreranked retrieval that produced the pool (top_k = candidate_k)"
+          },
+          "upstream_configuration_hash": {
+            "type": "string",
+            "title": "Upstream Configuration Hash"
+          },
+          "latency_ms": {
+            "type": "number",
+            "title": "Latency Ms",
+            "description": "Scoring time only; excludes the one-time model load"
+          },
+          "statistics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Statistics",
+            "description": "promoted, demoted, unchanged, entered_top_k, left_top_k over the whole pool"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reranker",
+          "info",
+          "reranker_config_hash",
+          "candidate_k",
+          "final_top_k",
+          "candidates_scored",
+          "upstream_configuration",
+          "upstream_configuration_hash",
+          "latency_ms",
+          "statistics"
+        ],
+        "title": "RerankProvenance"
+      },
+      "RerankReport": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/RerankCandidate"
+            },
+            "type": "array",
+            "title": "Candidates",
+            "description": "The whole scored pool, by final rank"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "title": "RerankReport"
+      },
+      "RerankerInfo": {
+        "properties": {
+          "spec": {
+            "$ref": "#/components/schemas/RerankerSpec"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash"
+          },
+          "scoring": {
+            "type": "string",
+            "title": "Scoring",
+            "description": "How a (query, passage) pair becomes a score"
+          },
+          "activation": {
+            "type": "string",
+            "title": "Activation",
+            "description": "Applied to the model's single logit: identity or sigmoid"
+          },
+          "max_seq_length": {
+            "type": "integer",
+            "title": "Max Seq Length"
+          },
+          "truncation": {
+            "type": "string",
+            "title": "Truncation"
+          },
+          "weights_sha256": {
+            "type": "string",
+            "title": "Weights Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "spec",
+          "config_hash",
+          "scoring",
+          "activation",
+          "max_seq_length",
+          "truncation",
+          "weights_sha256"
+        ],
+        "title": "RerankerInfo",
+        "description": "The spec plus facts read from the loaded model files."
+      },
+      "RerankerSpec": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "default": "onnx-cross-encoder"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+          },
+          "revision": {
+            "type": "string",
+            "title": "Revision",
+            "description": "Pinned model commit",
+            "default": "233902d25c440f23af6f7d6e94d2946bac0bee0a"
+          },
+          "max_seq_length": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Seq Length",
+            "description": "None = the model's own limit"
+          },
+          "batch_size": {
+            "type": "integer",
+            "maximum": 512.0,
+            "minimum": 1.0,
+            "title": "Batch Size",
+            "default": 32
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "model",
+          "revision",
+          "max_seq_length",
+          "batch_size"
+        ],
+        "title": "RerankerSpec",
+        "description": "What determines a reranker's scores. Its hash is part of every reranked configuration."
+      },
       "RetrievalConfiguration": {
         "properties": {
           "corpus_id": {
@@ -2771,6 +3094,16 @@
                 "type": "null"
               }
             ]
+          },
+          "rerank": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RerankConfiguration"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -2783,7 +3116,8 @@
           "top_k",
           "bm25",
           "embedder",
-          "hybrid"
+          "hybrid",
+          "rerank"
         ],
         "title": "RetrievalConfiguration",
         "description": "Everything that determines a ranked result set, resolved. The unit an experiment varies."
@@ -2879,6 +3213,17 @@
               }
             ],
             "description": "Hybrid only"
+          },
+          "rerank": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RerankDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Reranked requests only"
           }
         },
         "additionalProperties": false,
@@ -2890,7 +3235,8 @@
           "media_type",
           "document_version",
           "matched_terms",
-          "fusion"
+          "fusion",
+          "rerank"
         ],
         "title": "RetrievalHit",
         "description": "One retrieved chunk with everything needed to display and trace it."
@@ -2970,6 +3316,17 @@
             "type": "string",
             "format": "date-time",
             "title": "Retrieved At"
+          },
+          "reranking": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RerankProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Reranked requests only"
           }
         },
         "additionalProperties": false,
@@ -2989,7 +3346,8 @@
           "statistics",
           "environment",
           "elapsed_ms",
-          "retrieved_at"
+          "retrieved_at",
+          "reranking"
         ],
         "title": "RetrievalProvenance"
       },
@@ -3030,6 +3388,9 @@
           },
           "hybrid": {
             "$ref": "#/components/schemas/HybridParams-Input"
+          },
+          "rerank": {
+            "$ref": "#/components/schemas/RerankParams"
           }
         },
         "additionalProperties": false,
@@ -3049,7 +3410,8 @@
               "$ref": "#/components/schemas/RetrievalHit"
             },
             "type": "array",
-            "title": "Hits"
+            "title": "Hits",
+            "description": "Final ranking; when reranked, result.rank and result.score are the reranker's"
           },
           "provenance": {
             "$ref": "#/components/schemas/RetrievalProvenance"
@@ -3060,6 +3422,17 @@
             },
             "type": "array",
             "title": "Warnings"
+          },
+          "reranking": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RerankReport"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Reranked requests only"
           }
         },
         "additionalProperties": false,
@@ -3068,7 +3441,8 @@
           "query",
           "hits",
           "provenance",
-          "warnings"
+          "warnings",
+          "reranking"
         ],
         "title": "RetrievalResponse"
       },

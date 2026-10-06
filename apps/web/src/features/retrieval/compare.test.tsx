@@ -17,6 +17,7 @@ const hit = (id: string, rank: number, score: number, key: RunKey, fusion: Fusio
   document_version: 1,
   matched_terms: [],
   fusion,
+  rerank: null,
 });
 
 const run = (key: RunKey, ids: string[], ms: number): RetrievalResponse =>

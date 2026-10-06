@@ -36,7 +36,7 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 
 ## Status
 
-**Phase 4, hybrid retrieval.** What exists and works today:
+**Phase 5, cross-encoder reranking.** What exists and works today:
 
 | Area | State |
 |---|---|
@@ -52,9 +52,10 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 | Dense retrieval: `BAAI/bge-small-en-v1.5` (pinned, local ONNX), SQLite vector store, exact cosine search | Implemented; explicit index builds with ready/building/missing/stale/failed states |
 | Hybrid retrieval: RRF (primary) and weighted min-max fusion, per-component ranks/scores/contributions | Implemented; fixed strategy, no silent fallback |
 | `RetrievalConfiguration` + hash in every response | Implemented (the unit the Arena will vary) |
-| Retrieval Lab UI: BM25, Dense, Hybrid RRF, Hybrid weighted, four-way comparison, fusion explanation | Implemented against the real API |
+| Cross-encoder reranking after any strategy: `cross-encoder/ms-marco-MiniLM-L-6-v2` (pinned, local ONNX, CPU), configurable candidate pool and final top-k, per-candidate rank movement | Implemented; no unreranked fallback, full reranking provenance |
+| Retrieval Lab UI: BM25, Dense, Hybrid RRF, Hybrid weighted, four-way comparison, fusion explanation, reranking analysis | Implemented against the real API |
 | Retrieval metrics: Recall@K, Precision@K, MRR, nDCG@K | Implemented, `POST /api/v1/evaluation/retrieval` |
-| Reranking, adaptive router, Arena, generation | Not built; unregistered strategies return `501` |
+| Adaptive router, Arena, generation | Not built; unregistered strategies return `501` |
 | Other product areas (Forge, Router, Evidence, Arena, …) | Scoped, not built |
 
 Numbers on the Overview marked **SAMPLE** (hatched badge) are preview data from
@@ -81,7 +82,7 @@ rag-forge/
 │   │   ├── src/rag_forge/
 │   │   │   ├── domain/       foundational models
 │   │   │   ├── ingestion/    extraction, chunking, ingestion service
-│   │   │   ├── retrieval/    retriever contract, BM25, embeddings, dense, fusion, hybrid, service
+│   │   │   ├── retrieval/    retriever contract, BM25, embeddings, dense, fusion, hybrid, rerank, service
 │   │   │   ├── evaluation/   retrieval metrics
 │   │   │   ├── provenance/   environment capture
 │   │   │   ├── storage/      store contract, SQLite + migrations, lexical index, vector index, blobs
@@ -104,7 +105,7 @@ rag-forge/
 
 See [docs/architecture.md](docs/architecture.md) for layering,
 [docs/ingestion.md](docs/ingestion.md) for ingestion and versioning,
-[docs/retrieval.md](docs/retrieval.md) for the retrieval contract, BM25, dense and hybrid retrieval, and
+[docs/retrieval.md](docs/retrieval.md) for the retrieval contract, BM25, dense and hybrid retrieval and reranking, and
 [docs/research/methodology.md](docs/research/methodology.md) for how comparisons will be run.
 
 ## Technology
@@ -114,7 +115,7 @@ See [docs/architecture.md](docs/architecture.md) for layering,
 | API | FastAPI, Pydantic v2, uvicorn | Typed contracts that generate OpenAPI |
 | Storage | SQLite (stdlib `sqlite3`, WAL), content-addressed files | Zero-ops locally; the store contract allows Postgres later |
 | Extraction | pypdf (PDF); stdlib for text/Markdown | Pure Python, no system dependencies |
-| Embeddings | onnxruntime + tokenizers, model files from the Hugging Face cache | Local, pinned, ~85 MB of deps instead of PyTorch |
+| Embeddings, reranking | onnxruntime + tokenizers, model files from the Hugging Face cache | Local, pinned, CPU-only, ~85 MB of deps instead of PyTorch |
 | Python tooling | uv, ruff, mypy (strict), pytest | Fast, lockfile-reproducible |
 | Web | Next.js 16, React 19, TypeScript, Tailwind v4 | App Router, static where possible |
 | Motion & charts | Motion, Recharts, SVG | Motion shows state and data flow |

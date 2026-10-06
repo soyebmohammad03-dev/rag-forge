@@ -24,7 +24,7 @@ Packages exist only when they contain code. Current and planned:
 | `provenance` | Environment capture, provenance records | Environment capture present |
 | `storage` | `CorpusStore` contract, SQLite store, content-addressed blob store | Present |
 | `ingestion` | Extractors, chunkers, ingestion service, versioning | Present (see [ingestion.md](ingestion.md)) |
-| `retrieval` | `Retriever` contract, BM25, `Embedder` + ONNX embedder, dense index + retriever, `FusionStrategy` (RRF, weighted), `HybridRetriever`; later reranking | BM25, dense and hybrid present (see [retrieval.md](retrieval.md)) |
+| `retrieval` | `Retriever` contract, BM25, `Embedder` + ONNX embedder, dense index + retriever, `FusionStrategy` (RRF, weighted), `HybridRetriever`, `Reranker` + ONNX cross-encoder | BM25, dense, hybrid and reranking present (see [retrieval.md](retrieval.md)) |
 | `experiments` | Run orchestration, ablation grids | Phase 3 |
 | `router` | Query analysis, policies, `RouterDecision` recording | Phase 4 |
 | `knowledge` | Entities, relations, graph retrieval support | Later |

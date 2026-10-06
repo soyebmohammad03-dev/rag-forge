@@ -23,6 +23,7 @@ from rag_forge.api.schemas import (
 from rag_forge.domain.models import Experiment, ExperimentRun, Metric
 from rag_forge.evaluation import retrieval_metrics as rm
 from rag_forge.provenance.environment import capture_environment
+from rag_forge.retrieval.rerank import Reranker
 from rag_forge.storage.base import CorpusStore
 
 router = APIRouter(prefix="/api/v1")
@@ -65,7 +66,7 @@ def health(request: Request) -> HealthStatus:
         ComponentHealth(
             name="llm_provider", state=ComponentState.NOT_CONFIGURED, detail="no provider"
         ),
-        ComponentHealth(name="reranker", state=ComponentState.NOT_CONFIGURED, detail="no reranker"),
+        _reranker_health(request.app.state.reranker),
     ]
     healthy = all(c.state != ComponentState.ERROR for c in components)
     return HealthStatus(
@@ -74,6 +75,14 @@ def health(request: Request) -> HealthStatus:
         started_at=started_at,
         uptime_seconds=(datetime.now(UTC) - started_at).total_seconds(),
         components=components,
+    )
+
+
+def _reranker_health(reranker: Reranker) -> ComponentHealth:
+    """Configured, not loaded: health never triggers a model download."""
+    spec = reranker.spec
+    return ComponentHealth(
+        name="reranker", state=ComponentState.OK, detail=f"{spec.model}@{spec.revision[:8]}"
     )
 
 

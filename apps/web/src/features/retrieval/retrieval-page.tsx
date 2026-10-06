@@ -1,7 +1,7 @@
 "use client";
 
 import type { CorpusSummary, RetrievalProvenance, RetrievalResponse, RetrievalStrategy } from "@rag-forge/shared";
-import { Database, ScanSearch, SearchX } from "lucide-react";
+import { Database, Layers, ScanSearch, SearchX } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -20,6 +20,10 @@ import { CompareView } from "./compare-view";
 import { DENSE_STATE, DenseIndexPanel, DenseStateBadge, useDenseIndex } from "./dense-index";
 import { EvidenceCard } from "./evidence-card";
 import { errorMessage } from "./errors";
+import { RerankAnalysis } from "./rerank-analysis";
+
+/** The server's default reranker; the provenance panel shows the exact revision and weights. */
+const RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2";
 
 type Mode = RunKey | "compare";
 type Run =
@@ -65,8 +69,9 @@ export function RetrievalPage() {
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-signal">Retrieval</p>
         <h1 className="mt-1.5 text-2xl font-medium tracking-tight">Retrieval Lab</h1>
         <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-fg-muted">
-          Run a query against one corpus version with BM25 (exact terms) or dense retrieval (semantic similarity), or
-          both side by side. This is inspection, not evaluation: no quality metrics are computed here.
+          Run a query against one corpus version with BM25 (exact terms), dense retrieval (semantic similarity) or a
+          hybrid of both, optionally rerank the candidates with a local cross-encoder, or compare strategies side by
+          side. This is inspection, not evaluation: no quality metrics are computed here.
         </p>
       </header>
       {!corpora.data?.length || !summary ? (
@@ -97,12 +102,21 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
   const [rrfK, setRrfK] = useState(60);
   const [candidateK, setCandidateK] = useState(50);
   const [denseWeight, setDenseWeight] = useState(0.5);
+  const [rerankOn, setRerankOn] = useState(false);
+  const [poolK, setPoolK] = useState(50);
   const [run, setRun] = useState<Run>({ kind: "idle" });
   const dense = useDenseIndex(summary.corpus.id, version);
   const denseState = dense.data?.state;
   const needsDense = mode !== "sparse";
   const usesHybrid = mode === "rrf" || mode === "weighted" || mode === "compare";
-  const hybridError = usesHybrid && candidateK < topK ? "Candidates per retriever must be at least top k." : null;
+  const rerank = rerankOn && mode !== "compare"; // reranking analysis runs on one upstream strategy
+  const rerankError = rerank && poolK < topK ? "The candidate pool must be at least the final top k." : null;
+  const hybridError =
+    usesHybrid && candidateK < (rerank ? poolK : topK)
+      ? rerank
+        ? "Candidates per retriever must be at least the rerank pool."
+        : "Candidates per retriever must be at least top k."
+      : null;
   const denseBlocked = needsDense && denseState !== "ready";
 
   const retrieve = async (key: RunKey) => {
@@ -122,6 +136,7 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
           candidate_k: candidateK,
           weights: { sparse: Math.round((1 - w) * 100) / 100, dense: w },
         },
+        ...(rerank && key === mode ? { rerank: { enabled: true, model: RERANK_MODEL, candidate_k: poolK } } : {}),
       },
     });
     if (!data) throw new Error(errorMessage(error, response.status));
@@ -130,7 +145,7 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!query.trim() || denseBlocked || hybridError) return;
+    if (!query.trim() || denseBlocked || hybridError || rerankError) return;
     setRun({ kind: "busy" });
     try {
       if (mode === "compare") {
@@ -210,6 +225,15 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
                 </div>
               )}
             </details>
+            <RerankControls
+              on={rerankOn}
+              onToggle={setRerankOn}
+              poolK={poolK}
+              onPoolK={setPoolK}
+              topK={topK}
+              disabled={mode === "compare"}
+              error={rerankError}
+            />
             {(mode === "weighted" || mode === "compare") && (
               <div className="space-y-1.5">
                 <label htmlFor="rl-weight" className="flex justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-fg-muted">
@@ -238,7 +262,7 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
               </p>
             )}
             <div className="flex items-center justify-end">
-              <Button type="submit" variant="primary" disabled={!query.trim() || run.kind === "busy" || denseBlocked || !!hybridError}>
+              <Button type="submit" variant="primary" disabled={!query.trim() || run.kind === "busy" || denseBlocked || !!hybridError || !!rerankError}>
                 <ScanSearch className="size-4" /> {run.kind === "busy" ? "Retrieving…" : mode === "compare" ? "Compare" : "Retrieve"}{" "}
                 <Kbd className="border-black/20 bg-black/10 text-black/70">↵</Kbd>
               </Button>
@@ -274,8 +298,11 @@ function Results({ run, corpusId }: { run: Exclude<Run, { kind: "compare" }>; co
   if (run.kind === "busy") return <Panel><LoadingState rows={6} label="Retrieving" /></Panel>;
   if (run.kind === "error") return <Panel><ErrorState title="Retrieval failed">{run.message}</ErrorState></Panel>;
 
-  const { hits, provenance, warnings } = run.response;
+  const { hits, provenance, warnings, reranking } = run.response;
   const top = hits[0]?.result.score ?? 0;
+  const pool = reranking?.candidates;
+  const scores = pool?.map((c) => c.rerank.reranker_score) ?? [];
+  const range: [number, number] | undefined = pool ? [Math.min(...scores), Math.max(...scores)] : undefined;
   const dense = provenance.strategy === "dense";
   const hybrid = provenance.configuration.hybrid;
   return (
@@ -286,6 +313,7 @@ function Results({ run, corpusId }: { run: Exclude<Run, { kind: "compare" }>; co
           <span className="ml-2 font-mono text-[11px] font-normal text-fg-subtle">
             {hybrid ? `fused from ${provenance.statistics.fused_candidates} candidates (${hybrid.fusion})` : dense ? "by cosine similarity" : `of ${provenance.statistics.matched_chunks ?? 0} matching`} ·{" "}
             {provenance.statistics.candidate_chunks} searched ·{" "}
+            {provenance.reranking && `reranked ${provenance.reranking.candidates_scored} · `}
             {provenance.elapsed_ms.toFixed(1)} ms
           </span>
         </h2>
@@ -294,6 +322,7 @@ function Results({ run, corpusId }: { run: Exclude<Run, { kind: "compare" }>; co
       {warnings.map((w) => (
         <p key={w} role="status" className="rounded-md border border-signal/30 bg-signal-dim/40 px-3 py-2 text-xs text-signal">{w}</p>
       ))}
+      {provenance.reranking && hits.length > 0 && <RerankAnalysis response={run.response} />}
       {hits.length === 0 ? (
         <Panel>
           <EmptyState icon={SearchX} title="No matching chunks">
@@ -303,7 +332,7 @@ function Results({ run, corpusId }: { run: Exclude<Run, { kind: "compare" }>; co
           </EmptyState>
         </Panel>
       ) : (
-        hits.map((h, i) => <EvidenceCard key={h.result.chunk_id} hit={h} topScore={top} corpusId={corpusId} index={i} rrfK={hybrid?.rrf_k} />)
+        hits.map((h, i) => <EvidenceCard key={h.result.chunk_id} hit={h} topScore={top} corpusId={corpusId} index={i} rrfK={hybrid?.rrf_k} pool={pool} scoreRange={range} />)
       )}
     </section>
   );
@@ -317,7 +346,7 @@ function ProvenancePanel({ p }: { p: RetrievalProvenance }) {
   const fusion = c.fusion as Record<string, unknown> | undefined;
   return (
     <Panel>
-      <PanelHeader eyebrow={`Provenance · ${hybrid ? `hybrid ${hybrid.fusion}` : dense ? "dense" : "BM25"}`} title="How this ranking was produced" actions={<Badge tone="trace">v{p.corpus_version}</Badge>} />
+      <PanelHeader eyebrow={`Provenance · ${hybrid ? `hybrid ${hybrid.fusion}` : dense ? "dense" : "BM25"}${p.reranking ? " + rerank" : ""}`} title="How this ranking was produced" actions={<Badge tone="trace">v{p.corpus_version}</Badge>} />
       {!dense && p.query_terms.length > 0 && (
         <div className="border-b border-line px-3 py-2.5">
           <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle">Query terms</div>
@@ -356,6 +385,7 @@ function ProvenancePanel({ p }: { p: RetrievalProvenance }) {
             <Field label="Indexed now"><span className="num">{s.indexed_now}</span></Field>
           </>
         )}
+        {p.reranking && <RerankProvenanceFields r={p.reranking} />}
         <Field label="Configuration"><span className="font-mono text-trace" title={p.configuration_hash}>{shortHash(p.configuration_hash, 12)}</span></Field>
         <Field label="Chunking hash"><span className="font-mono" title={p.chunking_hash}>{shortHash(p.chunking_hash, 12)}</span></Field>
         <Field label="Chunks searched"><span className="num">{s.candidate_chunks}</span></Field>
@@ -385,5 +415,79 @@ function RunConfigurations({ runs }: { runs: Required<Runs> }) {
         Same corpus version and query for all four; each hash identifies one complete retrieval configuration.
       </p>
     </Panel>
+  );
+}
+
+function RerankControls({
+  on,
+  onToggle,
+  poolK,
+  onPoolK,
+  topK,
+  disabled,
+  error,
+}: {
+  on: boolean;
+  onToggle: (on: boolean) => void;
+  poolK: number;
+  onPoolK: (k: number) => void;
+  topK: number;
+  disabled: boolean;
+  error: string | null;
+}) {
+  const active = on && !disabled;
+  return (
+    <div className="space-y-2 rounded-md border border-line p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-muted">
+          <Layers className="size-3.5 text-s-rerank" /> Rerank
+        </span>
+        <Segmented
+          name="rerank"
+          value={active ? "on" : "off"}
+          options={[
+            { value: "off", label: "Off" },
+            { value: "on", label: "Cross-encoder" },
+          ]}
+          onChange={(v) => !disabled && onToggle(v === "on")}
+        />
+      </div>
+      {disabled ? (
+        <p className="text-[11px] leading-relaxed text-fg-subtle">Reranking analysis runs on one strategy at a time; pick BM25, Dense, RRF or Weighted.</p>
+      ) : active ? (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Candidate pool" htmlFor="rl-pool" hint="upstream results scored" error={error}>
+              <Input id="rl-pool" type="number" min={1} max={200} value={poolK} aria-invalid={!!error} onChange={(e) => onPoolK(e.target.valueAsNumber || 1)} />
+            </FormField>
+            <div className="space-y-1.5">
+              <span className="block font-mono text-[10px] uppercase tracking-[0.14em] text-fg-muted">Final top k</span>
+              <div className="num flex h-9 items-center rounded-md border border-line bg-surface-2 px-3 font-mono text-[13px] text-fg-muted">{topK}</div>
+              <p className="text-[11px] text-fg-subtle">set by Top k</p>
+            </div>
+          </div>
+          <p className="font-mono text-[10px] leading-relaxed text-fg-subtle">
+            retrieve {poolK} → score {poolK} (query, chunk) pairs with {RERANK_MODEL.split("/")[1]} → keep {topK}
+          </p>
+        </>
+      ) : (
+        <p className="text-[11px] leading-relaxed text-fg-subtle">Re-score the retrieved candidates with a local cross-encoder and inspect how the ranking moves.</p>
+      )}
+    </div>
+  );
+}
+
+function RerankProvenanceFields({ r }: { r: NonNullable<RetrievalProvenance["reranking"]> }) {
+  return (
+    <>
+      <Field label="Reranker"><span className="font-mono" title={r.info.spec.model}>{r.reranker} · {r.info.spec.model}</span></Field>
+      <Field label="Reranker revision"><span className="font-mono" title={r.info.spec.revision}>{shortHash(r.info.spec.revision, 10)}</span></Field>
+      <Field label="Weights sha256"><span className="font-mono" title={r.info.weights_sha256}>{shortHash(r.info.weights_sha256, 12)}</span></Field>
+      <Field label="Scoring"><span className="font-mono">{r.info.scoring} · max {r.info.max_seq_length} tok</span></Field>
+      <Field label="Pool → top k"><span className="num font-mono">{r.candidates_scored} scored of {r.candidate_k} → {r.final_top_k}</span></Field>
+      <Field label="Rerank latency"><span className="num">{r.latency_ms.toFixed(1)} ms</span></Field>
+      <Field label="Upstream config"><span className="font-mono" title={r.upstream_configuration_hash}>{shortHash(r.upstream_configuration_hash, 12)}</span></Field>
+      <Field label="Reranker config"><span className="font-mono" title={r.reranker_config_hash}>{shortHash(r.reranker_config_hash, 12)}</span></Field>
+    </>
   );
 }

@@ -6,22 +6,28 @@ Code: `apps/api/src/rag_forge/retrieval/`, `apps/api/src/rag_forge/storage/lexic
 Three strategies run behind one contract: **`sparse`** (BM25, also accepted as `"bm25"`),
 **`dense`** (embedding similarity) and **`hybrid`** (fusion of the two). All return the same
 `RetrievalResponse` shape; hybrid hits add a `fusion` block, which is `null` for the others.
+Any of them can be followed by an optional **cross-encoder reranking** stage (see
+[Reranking](#reranking)), which adds a `rerank` block per hit and a `reranking` report.
 
 ## Flow
 
 ```
-POST /api/v1/corpora/{id}/retrieve  { query, top_k, version?, strategy, bm25 }
+POST /api/v1/corpora/{id}/retrieve  { query, top_k, version?, strategy, bm25, hybrid, rerank }
         │
 RetrievalService
   1. resolve corpus (404) and version (default current; > current → 404)
   2. pick the retriever registered for `strategy` (unregistered → 501; dense without a ready
      index → 409 with the index state; embedding model unavailable → 503)
-  3. retriever.retrieve(corpus, version, query, top_k) → ranked chunk ids + scores + statistics
-  4. load chunks and document versions; build hits (rank, score, chunk, filename, doc version)
-  5. attach provenance (corpus version, chunking hash, retriever config + hash, query terms,
-     statistics, environment, elapsed time)
+  3. if rerank.enabled, resolve the reranker for rerank.model (unregistered → 501)
+  4. retriever.retrieve(corpus, version, query, top_k, or rerank.candidate_k when reranking)
+     → ranked chunk ids + scores + statistics
+  5. if reranking: score every (query, chunk) pair in batches, reorder the pool, keep top_k
+     (model unavailable → 503 with component "reranker"; never an unreranked fallback)
+  6. load chunks and document versions; build hits (rank, score, chunk, filename, doc version)
+  7. attach provenance (corpus version, chunking hash, retriever config + hash, query terms,
+     statistics, environment, elapsed time; reranking provenance when reranked)
         │
-RetrievalResponse { query, hits[], provenance, warnings[] }
+RetrievalResponse { query, hits[], provenance, warnings[], reranking? }
 ```
 
 ## Retrieval contract
@@ -266,12 +272,93 @@ Invalid combinations return 422 with the reason.
 (`sparse.matched_chunks`, `dense.query_embedding_ms`, …) plus `fused_candidates`; `index_id` is
 the dense index used; `query_terms` come from BM25.
 
+## Reranking
+
+A second stage after any strategy:
+
+```
+query → BM25 | dense | hybrid → candidate pool (rerank.candidate_k)
+      → cross-encoder scores each (query, chunk) pair → reorder pool → final top_k
+```
+
+Code: `retrieval/rerank.py` (contract, `OnnxCrossEncoder`, `rank_movement`) and
+`RetrievalService._rerank`. A `Reranker` has a `name`, a `spec`, `info()` and
+`score(query, passages) -> list[float]`; it sees passages, not the corpus, so retrievers know
+nothing about it. Rerankers are registered in `create_app()` by model id, like strategies.
+
+### Model
+
+`cross-encoder/ms-marco-MiniLM-L-6-v2` at revision `233902d25c440f23af6f7d6e94d2946bac0bee0a`
+(`RerankerSpec`), a 6-layer MiniLM trained on MS MARCO passage ranking: ~91 MB fp32 ONNX export
+(`onnx/model.onnx`), 512-token pair limit. It runs on onnxruntime's CPU provider (Apple Silicon
+and x86, no GPU), with the same tokenizers dependency as the embedder. Files are fetched once into
+the Hugging Face cache at the pinned revision and loaded lazily, once per process, on the first
+reranked request. `$RAG_FORGE_RERANKER` (a `RerankerSpec` as JSON) selects another cross-encoder
+in the same layout (single-logit sequence classifier with an ONNX export).
+
+The score is the model's single logit with the activation from its own config
+(`sbert_ce_default_activation_function`: identity for this model, so scores are unbounded
+logits, typically −11…+10). Pairs are truncated `longest_first` at 512 tokens, the
+sentence-transformers default. Scores are rounded to 6 decimals.
+
+### Parameters and validation
+
+`rerank`: `enabled` (default `false`), `model` (a registered reranker; default the one above),
+`candidate_k` (1–200, the upstream pool size, must be ≥ `top_k`). `top_k` is the **final** top-k
+in every request; when reranking, the upstream retriever is asked for `candidate_k` results
+instead. For hybrid, `hybrid.candidate_k` (per component) must be ≥ `rerank.candidate_k`.
+Invalid combinations return 422.
+
+### Rank movement
+
+Each scored candidate gets a `RerankDetail`:
+
+| Field | Meaning |
+|---|---|
+| `original_rank`, `original_score` | position and score in the upstream ranking (1-based) |
+| `reranker_score`, `final_rank` | cross-encoder score; position after sorting the whole pool |
+| `rank_delta` | `original_rank − final_rank`; positive = moved up |
+| `movement` | `promoted` (Δ > 0), `demoted` (Δ < 0), `unchanged` (Δ = 0) |
+| `entered_top_k` | `final_rank ≤ top_k < original_rank` |
+| `left_top_k` | `original_rank ≤ top_k < final_rank` |
+
+The pool is sorted by reranker score, best first; equal scores keep their upstream order, so the
+ranking is deterministic and a reranker that scores everything equally changes nothing. Hits are
+the final top-k: `result.rank` and `result.score` are the final rank and the reranker score, while
+`result.strategy`, `matched_terms` and `fusion` still describe the upstream retrieval. The
+response's `reranking.candidates` lists the whole pool by final rank, including chunks that left
+the top-k.
+
+For any candidate, `rank_delta` equals the number of candidates it overtook minus the number that
+overtook it. The Retrieval Lab explains movement in exactly those terms (the swaps and both
+scores), never with generated prose.
+
+### Provenance
+
+`provenance.reranking` holds the reranker name, `RerankerInfo` (spec with model and revision,
+scoring and activation, effective max length, truncation, SHA-256 of the ONNX weights),
+`reranker_config_hash`, `candidate_k`, `final_top_k`, `candidates_scored` (below `candidate_k`
+when fewer chunks match), scoring latency (excludes the one-time model load), movement counts,
+and the **upstream configuration**: the unreranked retrieval that produced the pool, whose hash is
+exactly what that retrieval returns on its own with `top_k = candidate_k`.
+`configuration.rerank` (model spec + `candidate_k`) makes reranked configurations hash
+differently from unreranked ones.
+
+### Failure behaviour
+
+- Unregistered `rerank.model`: 501 (`capability: "Reranker"`), checked before retrieval runs.
+- Model cannot be fetched or loaded, or returns a wrong number of or non-finite scores: 503 with
+  `component: "reranker"`. Unreranked results are never returned in place of reranked ones.
+- Unreranked requests never touch the reranker; the health endpoint reports the configured model
+  without loading it.
+
 ## Retrieval configuration
 
 `RetrievalConfiguration` (in every response's provenance, with `configuration_hash`) is the
 complete, resolved description of a ranked result set: corpus id, version and chunking hash,
 strategy, `top_k`, BM25 parameters (if BM25 participates), embedder spec (if dense participates)
-and hybrid parameters (if hybrid). Parameters a strategy ignores are omitted or blanked
+hybrid parameters (if hybrid) and the reranking step (if reranked; omitted from the hash otherwise,
+so configuration hashes from before reranking existed are unchanged). Parameters a strategy ignores are omitted or blanked
 (`HybridParams.effective()`), so two behaviourally identical runs share a hash. This is the unit
 the Arena will vary and compare.
 
@@ -295,6 +382,13 @@ retrievers need no changes.
 - Dense search is exact and loads a version's whole matrix (fine to ~10⁶ chunks); dense indexes
   build one at a time per process, in the API process.
 - Long chunks are truncated at the model's 512-token limit when embedded.
+- Reranking cost grows with `candidate_k` and pair length (batches pad to their longest pair).
+  Measured on an Apple Silicon CPU in fp32: ≈ 0.9 s for 30 pairs of ~170–340 tokens, ≈ 45 ms for
+  30 short pairs. The first reranked request also loads the model. Quantised exports are not
+  used: they would change scores.
+- The cross-encoder sees at most 512 tokens per (query, chunk) pair; longer chunks are truncated.
+  It is an English MS MARCO model, and reranking cannot recover chunks outside the upstream pool.
+- Reranking runs in the request thread; requests are not batched across users.
 - Vectors are computed on CPU; results are reproducible on one machine, and ordering is protected
   against tiny cross-machine float differences by rounding, but not guaranteed bit-identical
   across CPU architectures.

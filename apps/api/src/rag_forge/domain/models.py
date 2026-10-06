@@ -360,8 +360,86 @@ class ComponentScore(Model):
 
 class FusionDetail(Model):
     method: FusionMethod
-    score: float = Field(description="Final fused score (the hit's result.score)")
+    score: float = Field(description="Fused score (the hit's result.score unless reranked)")
     components: list[ComponentScore]
+
+
+DEFAULT_RERANKER = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+
+class RerankerSpec(Model):
+    """What determines a reranker's scores. Its hash is part of every reranked configuration."""
+
+    provider: str = "onnx-cross-encoder"
+    model: str = DEFAULT_RERANKER
+    revision: str = Field(
+        default="233902d25c440f23af6f7d6e94d2946bac0bee0a", description="Pinned model commit"
+    )
+    max_seq_length: int | None = Field(default=None, description="None = the model's own limit")
+    batch_size: int = Field(default=32, ge=1, le=512)
+
+    def config_hash(self) -> str:
+        return canonical_hash(self.model_dump(mode="json"))
+
+
+class RerankerInfo(Model):
+    """The spec plus facts read from the loaded model files."""
+
+    spec: RerankerSpec
+    config_hash: str
+    scoring: str = Field(description="How a (query, passage) pair becomes a score")
+    activation: str = Field(description="Applied to the model's single logit: identity or sigmoid")
+    max_seq_length: int  # effective pair limit (spec override or the model's own)
+    truncation: str
+    weights_sha256: str
+
+
+class RerankParams(Model):
+    enabled: bool = False
+    model: str = Field(default=DEFAULT_RERANKER, description="A registered reranker model")
+    candidate_k: int = Field(
+        default=50, ge=1, le=200, description="Upstream candidates the reranker scores"
+    )
+
+
+class RerankConfiguration(Model):
+    """The resolved reranking step: which model scored how many upstream candidates."""
+
+    reranker: RerankerSpec
+    candidate_k: int
+
+
+class RankMovement(StrEnum):
+    PROMOTED = "promoted"  # final rank better (smaller) than the upstream rank
+    DEMOTED = "demoted"
+    UNCHANGED = "unchanged"
+
+
+class RerankDetail(Model):
+    """How the reranker moved one candidate. Ranks are 1-based positions in the candidate pool."""
+
+    original_rank: int = Field(ge=1, description="Rank in the upstream retrieval")
+    original_score: float = Field(description="The upstream retriever's own score")
+    reranker_score: float
+    final_rank: int = Field(ge=1, description="Rank after reranking the whole candidate pool")
+    rank_delta: int = Field(description="original_rank - final_rank; positive = moved up")
+    movement: RankMovement
+    entered_top_k: bool = Field(description="In the final top-k but not the upstream top-k")
+    left_top_k: bool = Field(description="In the upstream top-k but not the final top-k")
+
+
+class RerankCandidate(Model):
+    """One scored candidate, including those that did not make the final top-k."""
+
+    chunk_id: str
+    document_id: str
+    filename: str
+    chunk_ordinal: int
+    rerank: RerankDetail
+
+
+class RerankReport(Model):
+    candidates: list[RerankCandidate] = Field(description="The whole scored pool, by final rank")
 
 
 class RetrievalRequest(Model):
@@ -371,18 +449,27 @@ class RetrievalRequest(Model):
     strategy: RetrievalStrategy = RetrievalStrategy.SPARSE
     bm25: Bm25Params = Field(default_factory=Bm25Params)
     hybrid: HybridParams = Field(default_factory=HybridParams)
+    rerank: RerankParams = Field(default_factory=RerankParams)
 
     @field_validator("strategy", mode="before")
     @classmethod
     def _strategy_alias(cls, value: object) -> object:
         return "sparse" if value == "bm25" else value  # "bm25" names the sparse baseline
 
+    @property
+    def pool_k(self) -> int:
+        """How many ranked candidates the upstream retriever must return."""
+        return self.rerank.candidate_k if self.rerank.enabled else self.top_k
+
     @model_validator(mode="after")
     def _query_not_blank(self) -> RetrievalRequest:
         if not self.query.strip():
             raise ValueError("query must not be blank")
-        if self.strategy is RetrievalStrategy.HYBRID and self.hybrid.candidate_k < self.top_k:
-            raise ValueError("hybrid.candidate_k must be at least top_k")
+        if self.rerank.enabled and self.rerank.candidate_k < self.top_k:
+            raise ValueError("rerank.candidate_k must be at least top_k")
+        if self.strategy is RetrievalStrategy.HYBRID and self.hybrid.candidate_k < self.pool_k:
+            what = "rerank.candidate_k" if self.rerank.enabled else "top_k"
+            raise ValueError(f"hybrid.candidate_k must be at least {what}")
         return self
 
 
@@ -397,9 +484,12 @@ class RetrievalConfiguration(Model):
     bm25: Bm25Params | None = None
     embedder: EmbedderSpec | None = None
     hybrid: HybridParams | None = None
+    rerank: RerankConfiguration | None = None
 
     def config_hash(self) -> str:
-        return canonical_hash(self.model_dump(mode="json"))
+        # An unreranked configuration hashes exactly as it did before reranking existed.
+        exclude = {"rerank"} if self.rerank is None else None
+        return canonical_hash(self.model_dump(mode="json", exclude=exclude))
 
 
 class RetrievalHit(Model):
@@ -412,6 +502,24 @@ class RetrievalHit(Model):
     document_version: int
     matched_terms: list[str]
     fusion: FusionDetail | None = Field(default=None, description="Hybrid only")
+    rerank: RerankDetail | None = Field(default=None, description="Reranked requests only")
+
+
+class RerankProvenance(Model):
+    reranker: str
+    info: RerankerInfo
+    reranker_config_hash: str
+    candidate_k: int
+    final_top_k: int
+    candidates_scored: int = Field(description="May be below candidate_k on small corpora")
+    upstream_configuration: RetrievalConfiguration = Field(
+        description="The unreranked retrieval that produced the pool (top_k = candidate_k)"
+    )
+    upstream_configuration_hash: str
+    latency_ms: float = Field(description="Scoring time only; excludes the one-time model load")
+    statistics: dict[str, float] = Field(
+        description="promoted, demoted, unchanged, entered_top_k, left_top_k over the whole pool"
+    )
 
 
 class RetrievalProvenance(Model):
@@ -432,13 +540,17 @@ class RetrievalProvenance(Model):
     environment: EnvironmentSnapshot
     elapsed_ms: float
     retrieved_at: datetime = Field(default_factory=utcnow)
+    reranking: RerankProvenance | None = Field(default=None, description="Reranked requests only")
 
 
 class RetrievalResponse(Model):
     query: Query
-    hits: list[RetrievalHit]
+    hits: list[RetrievalHit] = Field(
+        description="Final ranking; when reranked, result.rank and result.score are the reranker's"
+    )
     provenance: RetrievalProvenance
     warnings: list[str] = Field(default_factory=list)
+    reranking: RerankReport | None = Field(default=None, description="Reranked requests only")
 
 
 class Evidence(Model):

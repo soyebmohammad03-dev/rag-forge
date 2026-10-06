@@ -40,9 +40,11 @@ from rag_forge.ingestion.service import DocumentNotInCorpusError, IngestionServi
 from rag_forge.retrieval.dense import DenseIndexNotReadyError, DenseIndexService
 from rag_forge.retrieval.embedding import EmbedderUnavailableError
 from rag_forge.retrieval.hybrid import ComponentMismatchError
+from rag_forge.retrieval.rerank import RerankerUnavailableError
 from rag_forge.retrieval.service import (
     CorpusVersionNotFoundError,
     ForeignResultError,
+    RerankerNotAvailableError,
     RetrievalService,
     StrategyNotAvailableError,
 )
@@ -226,6 +228,15 @@ def retrieve(corpus_id: str, body: RetrievalRequest, request: Request) -> Retrie
     except StrategyNotAvailableError as exc:
         detail = NotImplementedDetail(capability="Retrieval strategy", message=str(exc))
         raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail=detail.model_dump()) from exc
+    except RerankerNotAvailableError as exc:
+        detail = NotImplementedDetail(capability="Reranker", message=str(exc))
+        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail=detail.model_dump()) from exc
+    except RerankerUnavailableError as exc:
+        # reranking was requested, so unreranked results would answer a different question
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"component": "reranker", "message": str(exc)},
+        ) from exc
     except DenseIndexNotReadyError as exc:
         # component names the retriever that cannot run (hybrid never degrades to the other one)
         raise HTTPException(

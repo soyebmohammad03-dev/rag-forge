@@ -4,10 +4,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from rag_forge.domain.models import EmbedderSpec
+from rag_forge.domain.models import EmbedderSpec, RerankerSpec
 from rag_forge.ingestion.service import IngestionService
 from rag_forge.main import create_app
 from rag_forge.retrieval.embedding import OnnxSentenceEmbedder
+from rag_forge.retrieval.rerank import OnnxCrossEncoder
 from rag_forge.storage.blobs import BlobStore
 from rag_forge.storage.sqlite import SqliteStore
 
@@ -46,6 +47,12 @@ def make_pdf(pages: list[str]) -> bytes:
 def embedder() -> OnnxSentenceEmbedder:
     """The real pinned model, loaded once per session (downloaded once into the HF cache)."""
     return OnnxSentenceEmbedder(EmbedderSpec())
+
+
+@pytest.fixture(scope="session")
+def cross_encoder() -> OnnxCrossEncoder:
+    """The real pinned cross-encoder, loaded once per session (cached like the embedder)."""
+    return OnnxCrossEncoder(RerankerSpec())
 
 
 @pytest.fixture
