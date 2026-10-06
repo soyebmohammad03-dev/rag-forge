@@ -48,6 +48,7 @@ from rag_forge.retrieval.service import (
     RetrievalService,
     StrategyNotAvailableError,
 )
+from rag_forge.router.service import RouterComponentNotAvailableError
 from rag_forge.storage.base import CorpusStore, VersionChange
 from rag_forge.storage.vector_index import IndexIntegrityError
 
@@ -227,6 +228,9 @@ def retrieve(corpus_id: str, body: RetrievalRequest, request: Request) -> Retrie
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except StrategyNotAvailableError as exc:
         detail = NotImplementedDetail(capability="Retrieval strategy", message=str(exc))
+        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail=detail.model_dump()) from exc
+    except RouterComponentNotAvailableError as exc:
+        detail = NotImplementedDetail(capability="Router", message=str(exc))
         raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail=detail.model_dump()) from exc
     except RerankerNotAvailableError as exc:
         detail = NotImplementedDetail(capability="Reranker", message=str(exc))

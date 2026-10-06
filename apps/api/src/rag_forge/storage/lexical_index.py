@@ -98,6 +98,22 @@ class SqliteLexicalIndex:
             ).fetchone()
         return VersionStats(chunks=n, avg_length=avg)
 
+    def document_frequencies(
+        self, corpus: Corpus, version: int, terms: list[str]
+    ) -> dict[str, int]:
+        """Chunks in this corpus version containing each term (0 for absent terms)."""
+        with self.store.transaction() as db:
+            rows = db.execute(
+                f"""SELECT t.term, COUNT(*) FROM lexical_terms t
+                    JOIN lexical_postings p ON p.term_id = t.id
+                    JOIN lexical_docs d ON d.doc_key = p.doc_key AND d.analyzer = :analyzer
+                    JOIN ({_MEMBERS}) m ON m.chunk_id = d.chunk_id
+                    WHERE t.term IN (SELECT value FROM json_each(:terms)) GROUP BY t.term""",
+                {**self._scope(corpus, version), "terms": json.dumps(terms)},
+            ).fetchall()
+        found = dict(rows)
+        return {t: int(found.get(t, 0)) for t in terms}
+
     def postings(self, corpus: Corpus, version: int, terms: list[str]) -> list[Posting]:
         """Postings for `terms`, restricted to chunks in this corpus version."""
         with self.store.transaction() as db:

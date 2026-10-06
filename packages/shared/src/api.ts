@@ -47,7 +47,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Decide */
+        /**
+         * Decide
+         * @description Analyse a query and decide its retrieval configuration without retrieving.
+         */
         post: operations["decide_api_v1_router_decide_post"];
         delete?: never;
         options?: never;
@@ -434,6 +437,11 @@ export interface components {
          * @enum {string}
          */
         ChunkingStrategy: "recursive" | "fixed";
+        /**
+         * Complexity
+         * @enum {string}
+         */
+        Complexity: "simple" | "moderate" | "complex";
         /** ComponentHealth */
         ComponentHealth: {
             /** Name */
@@ -522,6 +530,37 @@ export interface components {
                 [key: string]: unknown;
             };
             chunking?: components["schemas"]["ChunkingConfig-Input"];
+        };
+        /**
+         * CorpusQuerySignals
+         * @description How the query's terms occur in one corpus version (BM25 analyzer, BM25 statistics).
+         */
+        CorpusQuerySignals: {
+            /** Corpus Id */
+            corpus_id: string;
+            /** Corpus Version */
+            corpus_version: number;
+            /** Analyzer */
+            analyzer: string;
+            /** Chunk Count */
+            chunk_count: number;
+            /** Terms */
+            terms: components["schemas"]["TermStatistic"][];
+            /**
+             * Coverage
+             * @description Share of key terms (bm25_terms if there are none) found in the version
+             */
+            coverage: number;
+            /**
+             * Missing Terms
+             * @description The terms coverage counts that are absent
+             */
+            missing_terms: string[];
+            /**
+             * Mean Idf
+             * @description Mean idf of the terms that are present
+             */
+            mean_idf: number | null;
         };
         /** CorpusStats */
         CorpusStats: {
@@ -817,6 +856,11 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /**
+         * EvidenceNeed
+         * @enum {string}
+         */
+        EvidenceNeed: "single_passage" | "multiple_passages";
         /** Experiment */
         Experiment: {
             /** Id */
@@ -1079,6 +1123,142 @@ export interface components {
              */
             created_at: string;
         };
+        /** QueryAnalysis */
+        QueryAnalysis: {
+            /** Analyzer */
+            analyzer: string;
+            /** Analyzer Version */
+            analyzer_version: string;
+            /**
+             * Config Hash
+             * @description Hash of the analyzer's weights and thresholds
+             */
+            config_hash: string;
+            /** Query */
+            query: string;
+            /** Normalized Query */
+            normalized_query: string;
+            features: components["schemas"]["QueryFeatures"];
+            /** Signals */
+            signals: components["schemas"]["QuerySignal"][];
+            labels: components["schemas"]["QueryLabels"];
+            corpus: components["schemas"]["CorpusQuerySignals"] | null;
+            /**
+             * Analysis Hash
+             * @description Hash of everything above; equal inputs, equal hash
+             */
+            analysis_hash: string;
+        };
+        /**
+         * QueryClass
+         * @enum {string}
+         */
+        QueryClass: "lexical" | "semantic" | "mixed";
+        /**
+         * QueryFeatures
+         * @description Measured properties of the query text. Every list keeps first-occurrence order.
+         */
+        QueryFeatures: {
+            /** Char Count */
+            char_count: number;
+            /**
+             * Token Count
+             * @description Word tokens (Unicode word characters)
+             */
+            token_count: number;
+            /**
+             * Bm25 Terms
+             * @description Distinct terms BM25 searches (its analyzer)
+             */
+            bm25_terms: string[];
+            /**
+             * Key Terms
+             * @description bm25_terms that are not function words
+             */
+            key_terms: string[];
+            /**
+             * Function Word Ratio
+             * @description Share of word tokens that are function words (stopwords, interrogatives, auxiliaries, pronouns, prepositions)
+             */
+            function_word_ratio: number;
+            /**
+             * Is Question
+             * @description Ends with '?' or starts with a question/request word
+             */
+            is_question: boolean;
+            /**
+             * Question Word
+             * @description The leading question or request word
+             */
+            question_word: string | null;
+            question_type: components["schemas"]["QuestionType"];
+            /** Quoted Phrases */
+            quoted_phrases: string[];
+            /**
+             * Identifiers
+             * @description Tokens with digits, inner capitals, underscores, dots or 2+ capitals
+             */
+            identifiers: string[];
+            /**
+             * Capitalized Terms
+             * @description Capitalised words not at sentence start
+             */
+            capitalized_terms: string[];
+            /** Numbers */
+            numbers: string[];
+            /**
+             * Entities
+             * @description Quoted phrases, identifiers and capitalised terms
+             */
+            entities: string[];
+            /**
+             * Concept Segments
+             * @description Parts split on and/or/vs/commas/semicolons that contain a key term
+             */
+            concept_segments: string[];
+            /** Comparison Markers */
+            comparison_markers: string[];
+            /** Multi Hop Markers */
+            multi_hop_markers: string[];
+            /** Temporal Markers */
+            temporal_markers: string[];
+            /** Negation Markers */
+            negation_markers: string[];
+            /** Ambiguity Markers */
+            ambiguity_markers: string[];
+        };
+        /** QueryLabels */
+        QueryLabels: {
+            query_class: components["schemas"]["QueryClass"];
+            /**
+             * Class Margin
+             * @description lexical - semantic score; |margin| is the class confidence, not a probability
+             */
+            class_margin: number;
+            complexity: components["schemas"]["Complexity"];
+            /** Multi Hop Likely */
+            multi_hop_likely: boolean;
+            /** Ambiguous */
+            ambiguous: boolean;
+            evidence_need: components["schemas"]["EvidenceNeed"];
+        };
+        /**
+         * QuerySignal
+         * @description A 0..1 score that is exactly the clipped sum of its listed contributions.
+         */
+        QuerySignal: {
+            /** Name */
+            name: string;
+            /** Score */
+            score: number;
+            /** Contributions */
+            contributions: components["schemas"]["SignalContribution"][];
+        };
+        /**
+         * QuestionType
+         * @enum {string}
+         */
+        QuestionType: "definition" | "procedural" | "explanatory" | "comparison" | "list" | "boolean" | "factoid" | "keyword";
         /**
          * RankMovement
          * @enum {string}
@@ -1148,7 +1328,27 @@ export interface components {
             left_top_k: boolean;
         };
         /** RerankParams */
-        RerankParams: {
+        "RerankParams-Input": {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Model
+             * @description A registered reranker model
+             * @default cross-encoder/ms-marco-MiniLM-L-6-v2
+             */
+            model: string;
+            /**
+             * Candidate K
+             * @description Upstream candidates the reranker scores
+             * @default 50
+             */
+            candidate_k: number;
+        };
+        /** RerankParams */
+        "RerankParams-Output": {
             /**
              * Enabled
              * @default false
@@ -1283,6 +1483,7 @@ export interface components {
             embedder: components["schemas"]["EmbedderSpec"] | null;
             hybrid: components["schemas"]["HybridParams-Output"] | null;
             rerank: components["schemas"]["RerankConfiguration"] | null;
+            routing: components["schemas"]["RoutingConfiguration"] | null;
         };
         /** RetrievalEvaluationRequest */
         RetrievalEvaluationRequest: {
@@ -1330,6 +1531,11 @@ export interface components {
             /** @description Reranked requests only */
             rerank: components["schemas"]["RerankDetail"] | null;
         };
+        /**
+         * RetrievalMode
+         * @enum {string}
+         */
+        RetrievalMode: "manual" | "adaptive";
         /** RetrievalProvenance */
         RetrievalProvenance: {
             /** Corpus Id */
@@ -1374,9 +1580,11 @@ export interface components {
             retrieved_at: string;
             /** @description Reranked requests only */
             reranking: components["schemas"]["RerankProvenance"] | null;
+            /** @description Adaptive requests only */
+            routing: components["schemas"]["RoutingProvenance"] | null;
         };
         /** RetrievalRequest */
-        RetrievalRequest: {
+        "RetrievalRequest-Input": {
             /** Query */
             query: string;
             /**
@@ -1393,7 +1601,39 @@ export interface components {
             strategy: components["schemas"]["RetrievalStrategy"];
             bm25?: components["schemas"]["Bm25Params-Input"];
             hybrid?: components["schemas"]["HybridParams-Input"];
-            rerank?: components["schemas"]["RerankParams"];
+            rerank?: components["schemas"]["RerankParams-Input"];
+            /**
+             * @description adaptive: the router replaces strategy, hybrid and rerank
+             * @default manual
+             */
+            mode: components["schemas"]["RetrievalMode"];
+            router?: components["schemas"]["RouterParams-Input"];
+        };
+        /** RetrievalRequest */
+        "RetrievalRequest-Output": {
+            /** Query */
+            query: string;
+            /**
+             * Top K
+             * @default 10
+             */
+            top_k: number;
+            /**
+             * Version
+             * @description Corpus version; default current
+             */
+            version: number | null;
+            /** @default sparse */
+            strategy: components["schemas"]["RetrievalStrategy"];
+            bm25: components["schemas"]["Bm25Params-Output"];
+            hybrid: components["schemas"]["HybridParams-Output"];
+            rerank: components["schemas"]["RerankParams-Output"];
+            /**
+             * @description adaptive: the router replaces strategy, hybrid and rerank
+             * @default manual
+             */
+            mode: components["schemas"]["RetrievalMode"];
+            router: components["schemas"]["RouterParams-Output"];
         };
         /** RetrievalResponse */
         RetrievalResponse: {
@@ -1434,6 +1674,26 @@ export interface components {
          * @enum {string}
          */
         RetrievalStrategy: "sparse" | "dense" | "hybrid" | "metadata" | "graph" | "multi_hop" | "decomposition" | "multimodal";
+        /** RouteAlternative */
+        RouteAlternative: {
+            option: components["schemas"]["RouteOption"];
+            /** Selected */
+            selected: boolean;
+            /** Available */
+            available: boolean;
+            /** Unavailable Reason */
+            unavailable_reason: string | null;
+            /**
+             * Rules
+             * @description Policy rules that select this option
+             */
+            rules: string[];
+        };
+        /**
+         * RouteOption
+         * @enum {string}
+         */
+        RouteOption: "sparse" | "dense" | "hybrid_rrf" | "hybrid_weighted";
         /** RouterDecision */
         RouterDecision: {
             /** Id */
@@ -1442,19 +1702,86 @@ export interface components {
             query_id: string;
             /** Policy */
             policy: string;
-            /** Query Features */
-            query_features: {
-                [key: string]: unknown;
-            };
-            /** Selected Strategies */
-            selected_strategies: components["schemas"]["RetrievalStrategy"][];
-            /** Rationale */
-            rationale: string;
+            /** Policy Version */
+            policy_version: string;
+            /** Policy Config Hash */
+            policy_config_hash: string;
+            /** Analysis Hash */
+            analysis_hash: string;
+            /** @description The selected retrieval option */
+            option: components["schemas"]["RouteOption"];
+            /** @description The policy's choice before availability */
+            preferred: components["schemas"]["RouteOption"];
+            strategy: components["schemas"]["RetrievalStrategy"];
+            hybrid: components["schemas"]["HybridParams-Output"] | null;
+            rerank: components["schemas"]["RerankParams-Output"];
+            /**
+             * Rules
+             * @description Strategy rules in order, to the first match
+             */
+            rules: components["schemas"]["RuleEvaluation"][];
+            /**
+             * Rerank Rules
+             * @description Rerank rules, to the first match
+             */
+            rerank_rules: components["schemas"]["RuleEvaluation"][];
+            /** Alternatives */
+            alternatives: components["schemas"]["RouteAlternative"][];
+            /**
+             * Margin
+             * @description The deciding rule's margin; small = near a boundary
+             */
+            margin: number | null;
+            /**
+             * Rationale
+             * @description The fired rules, filled in with measured values
+             */
+            rationale: string[];
+            /**
+             * Configuration Hash
+             * @description Hash of the selected configuration, as the same manual request reports it
+             */
+            configuration_hash: string;
+            /**
+             * Decision Hash
+             * @description Hash of the decision, excluding ids and timestamps
+             */
+            decision_hash: string;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+        };
+        /** RouterParams */
+        "RouterParams-Input": {
+            /**
+             * Analyzer
+             * @description A registered query analyzer
+             * @default heuristic
+             */
+            analyzer: string;
+            /**
+             * Policy
+             * @description A registered router policy
+             * @default rules-baseline
+             */
+            policy: string;
+        };
+        /** RouterParams */
+        "RouterParams-Output": {
+            /**
+             * Analyzer
+             * @description A registered query analyzer
+             * @default heuristic
+             */
+            analyzer: string;
+            /**
+             * Policy
+             * @description A registered router policy
+             * @default rules-baseline
+             */
+            policy: string;
         };
         /** RouterRequest */
         RouterRequest: {
@@ -1462,13 +1789,104 @@ export interface components {
             corpus_id: string;
             /** Query */
             query: string;
-            /** Policy */
-            policy: string;
+            /**
+             * Version
+             * @description Corpus version; default current
+             */
+            version?: number | null;
+            /**
+             * Top K
+             * @description The final top-k the route must serve
+             * @default 10
+             */
+            top_k: number;
+            router?: components["schemas"]["RouterParams-Input"];
         };
         /** RouterResponse */
         RouterResponse: {
             query: components["schemas"]["Query"];
+            /** @description The manual request the router selected: sending it reproduces the route */
+            request: components["schemas"]["RetrievalRequest-Output"];
+            routing: components["schemas"]["RoutingProvenance"];
+        };
+        /**
+         * RoutingConfiguration
+         * @description The identity of the routing step: which analyzer and policy, at which versions.
+         */
+        RoutingConfiguration: {
+            /** Analyzer */
+            analyzer: string;
+            /** Analyzer Version */
+            analyzer_version: string;
+            /** Analyzer Config Hash */
+            analyzer_config_hash: string;
+            /** Policy */
+            policy: string;
+            /** Policy Version */
+            policy_version: string;
+            /** Policy Config Hash */
+            policy_config_hash: string;
+        };
+        /** RoutingProvenance */
+        RoutingProvenance: {
+            routing: components["schemas"]["RoutingConfiguration"];
+            /** Routing Hash */
+            routing_hash: string;
+            analysis: components["schemas"]["QueryAnalysis"];
             decision: components["schemas"]["RouterDecision"];
+            /**
+             * Analysis Ms
+             * @description Query analysis, including corpus term statistics
+             */
+            analysis_ms: number;
+            /** Decision Ms */
+            decision_ms: number;
+        };
+        /**
+         * RuleEvaluation
+         * @description One policy rule as evaluated for this query: what it read and whether it fired.
+         */
+        RuleEvaluation: {
+            /** Rule */
+            rule: string;
+            /**
+             * Description
+             * @description The rule as written in the policy
+             */
+            description: string;
+            /** Matched */
+            matched: boolean;
+            /** Inputs */
+            inputs: {
+                [key: string]: number | string | boolean | null;
+            };
+            /**
+             * Margin
+             * @description Distance of the inputs from the nearest threshold of the rule
+             */
+            margin: number | null;
+            /**
+             * Outcome
+             * @description What the rule selects when it fires
+             */
+            outcome: string | null;
+        };
+        /** SignalContribution */
+        SignalContribution: {
+            /** Feature */
+            feature: string;
+            /**
+             * Value
+             * @description The feature's value, scaled to 0..1
+             */
+            value: number;
+            /** Weight */
+            weight: number;
+            /**
+             * Contribution
+             * @description value * weight
+             */
+            contribution: number;
         };
         /** SupportedFormat */
         SupportedFormat: {
@@ -1478,6 +1896,21 @@ export interface components {
             extensions: string[];
             /** Parser */
             parser: string;
+        };
+        /** TermStatistic */
+        TermStatistic: {
+            /** Term */
+            term: string;
+            /**
+             * Document Frequency
+             * @description Chunks in the corpus version containing it
+             */
+            document_frequency: number;
+            /**
+             * Idf
+             * @description BM25 idf in this corpus version
+             */
+            idf: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -2077,7 +2510,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RetrievalRequest"];
+                "application/json": components["schemas"]["RetrievalRequest-Input"];
             };
         };
         responses: {

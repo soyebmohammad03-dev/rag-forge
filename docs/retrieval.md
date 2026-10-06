@@ -362,12 +362,11 @@ so configuration hashes from before reranking existed are unchanged). Parameters
 (`HybridParams.effective()`), so two behaviourally identical runs share a hash. This is the unit
 the Arena will vary and compare.
 
-## Toward the Router
+## Adaptive routing
 
-The Router will choose, per query, which of these configurations to run (for example BM25-only
-for identifier lookups, hybrid for open questions). It will call the same `RetrievalService`
-with a chosen `RetrievalConfiguration` and record the choice as a `RouterDecision`; fusion and
-retrievers need no changes.
+With `mode: "adaptive"` the router chooses the strategy, fusion and reranking for each query and
+hands the service an ordinary manual request; retrievers, fusion and reranking are unchanged. See
+[router.md](router.md).
 
 ## Known limits
 

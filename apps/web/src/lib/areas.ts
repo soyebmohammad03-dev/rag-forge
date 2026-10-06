@@ -57,14 +57,8 @@ export const AREAS: Area[] = [
     label: "Router",
     group: "Retrieval",
     icon: GitBranch,
-    status: "planned",
-    summary: "Watch the adaptive router analyse a query and choose retrieval strategies.",
-    capabilities: [
-      "Inspect query features and classification",
-      "Compare the chosen policy against fixed pipelines on the same query",
-      "Audit rationale for every RouterDecision",
-    ],
-    contracts: ["RouterDecision", "POST /api/v1/router/decide"],
+    status: "live",
+    summary: "Analyse a query, inspect the router's rule trace and compare its choice with fixed strategies.",
   },
   {
     slug: "retrieval",
@@ -72,7 +66,7 @@ export const AREAS: Area[] = [
     group: "Retrieval",
     icon: ScanSearch,
     status: "live",
-    summary: "Query a corpus version with the BM25 baseline; inspect ranked evidence and provenance.",
+    summary: "Query a corpus version with BM25, dense, hybrid, reranking or the router; inspect evidence and provenance.",
   },
   {
     slug: "evidence",

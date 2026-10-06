@@ -1,6 +1,6 @@
 "use client";
 
-import type { CorpusSummary, RetrievalProvenance, RetrievalResponse, RetrievalStrategy } from "@rag-forge/shared";
+import type { CorpusSummary, RetrievalMode, RetrievalRequest, RetrievalProvenance, RetrievalResponse, RetrievalStrategy, RouteOption } from "@rag-forge/shared";
 import { Database, Layers, ScanSearch, SearchX } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
@@ -21,6 +21,8 @@ import { DENSE_STATE, DenseIndexPanel, DenseStateBadge, useDenseIndex } from "./
 import { EvidenceCard } from "./evidence-card";
 import { errorMessage } from "./errors";
 import { RerankAnalysis } from "./rerank-analysis";
+import { OPTIONS } from "./routing";
+import { type AlternativeRuns, AlternativesPanel, FixedVsAdaptive, LatencyBreakdown, QueryIntelligencePanel, RouterDecisionPanel } from "./routing-panels";
 
 /** The server's default reranker; the provenance panel shows the exact revision and weights. */
 const RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2";
@@ -31,7 +33,13 @@ type Run =
   | { kind: "busy" }
   | { kind: "single"; response: RetrievalResponse }
   | { kind: "compare"; runs: Required<Runs> }
+  | { kind: "adaptive"; response: RetrievalResponse; baseline?: { key: RunKey; response: RetrievalResponse } }
   | { kind: "error"; message: string };
+
+const ROUTING: { value: RetrievalMode; label: string }[] = [
+  { value: "manual", label: "Manual" },
+  { value: "adaptive", label: "Adaptive" },
+];
 
 const MODES: { value: Mode; label: string }[] = [
   { value: "sparse", label: "BM25" },
@@ -52,7 +60,7 @@ const MODE_HELP: Record<Mode, string> = {
 const select =
   "h-9 w-full rounded-md border border-line-strong bg-surface px-2.5 font-mono text-[12px] text-fg focus:border-trace focus:outline-none";
 
-export function RetrievalPage() {
+export function RetrievalPage({ initialRouting = "manual" }: { initialRouting?: RetrievalMode }) {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -66,8 +74,8 @@ export function RetrievalPage() {
   return (
     <div className="mx-auto max-w-[1440px] space-y-5">
       <header>
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-signal">Retrieval</p>
-        <h1 className="mt-1.5 text-2xl font-medium tracking-tight">Retrieval Lab</h1>
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-signal">{initialRouting === "adaptive" ? "Router" : "Retrieval"}</p>
+        <h1 className="mt-1.5 text-2xl font-medium tracking-tight">{initialRouting === "adaptive" ? "Adaptive routing" : "Retrieval Lab"}</h1>
         <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-fg-muted">
           Run a query against one corpus version with BM25 (exact terms), dense retrieval (semantic similarity) or a
           hybrid of both, optionally rerank the candidates with a local cross-encoder, or compare strategies side by
@@ -83,6 +91,7 @@ export function RetrievalPage() {
       ) : (
         <Workspace
           key={summary.corpus.id}
+          initialRouting={initialRouting}
           corpora={corpora.data}
           summary={summary}
           onPickCorpus={(id) => router.replace(`${pathname}?corpus=${encodeURIComponent(id)}`)}
@@ -92,7 +101,10 @@ export function RetrievalPage() {
   );
 }
 
-function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[]; summary: CorpusSummary; onPickCorpus: (id: string) => void }) {
+function Workspace({ corpora, summary, onPickCorpus, initialRouting }: { corpora: CorpusSummary[]; summary: CorpusSummary; onPickCorpus: (id: string) => void; initialRouting: RetrievalMode }) {
+  const [routing, setRouting] = useState<RetrievalMode>(initialRouting);
+  const [runBaseline, setRunBaseline] = useState(true);
+  const [alternatives, setAlternatives] = useState<{ runs: AlternativeRuns; busy: boolean }>({ runs: {}, busy: false });
   const [mode, setMode] = useState<Mode>("sparse");
   const [query, setQuery] = useState("");
   const [version, setVersion] = useState<number | null>(null);
@@ -107,7 +119,9 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
   const [run, setRun] = useState<Run>({ kind: "idle" });
   const dense = useDenseIndex(summary.corpus.id, version);
   const denseState = dense.data?.state;
-  const needsDense = mode !== "sparse";
+  const adaptive = routing === "adaptive";
+  // adaptive runs never need dense (the router records what is unavailable); a fixed baseline may
+  const needsDense = mode !== "sparse" && (!adaptive || runBaseline);
   const usesHybrid = mode === "rrf" || mode === "weighted" || mode === "compare";
   const rerank = rerankOn && mode !== "compare"; // reranking analysis runs on one upstream strategy
   const rerankError = rerank && poolK < topK ? "The candidate pool must be at least the final top k." : null;
@@ -119,15 +133,55 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
       : null;
   const denseBlocked = needsDense && denseState !== "ready";
 
+  const post = async (body: RetrievalRequest) => {
+    const { data, error, response } = await api.POST("/api/v1/corpora/{corpus_id}/retrieve", {
+      params: { path: { corpus_id: summary.corpus.id } },
+      body,
+    });
+    if (!data) throw new Error(errorMessage(error, response.status));
+    return data;
+  };
+
+  const routed = () =>
+    // strategy is required by the generated type but ignored in adaptive mode: the router chooses
+    post({ query, top_k: topK, version, mode: "adaptive", strategy: "sparse", bm25: { k1, b } });
+
+  /** One fixed option with exactly the router's rerank setting, for the alternatives table. */
+  const option = (o: RouteOption, decision: NonNullable<RetrievalProvenance["routing"]>["decision"]) =>
+    post({
+      query,
+      top_k: topK,
+      version,
+      mode: "manual",
+      strategy: o === "sparse" ? "sparse" : o === "dense" ? "dense" : "hybrid",
+      bm25: { k1, b },
+      hybrid: {
+        fusion: o === "hybrid_weighted" ? "weighted" : "rrf",
+        rrf_k: decision.hybrid?.rrf_k ?? 60,
+        candidate_k: Math.max(50, decision.rerank.enabled ? decision.rerank.candidate_k : topK),
+        weights: decision.hybrid?.weights ?? { sparse: 0.5, dense: 0.5 },
+      },
+      rerank: decision.rerank,
+    });
+
+  const runAlternatives = async (decision: NonNullable<RetrievalProvenance["routing"]>["decision"]) => {
+    setAlternatives({ runs: {}, busy: true });
+    const settled = await Promise.allSettled(OPTIONS.map((o) => option(o, decision)));
+    const runs: AlternativeRuns = {};
+    settled.forEach((r, i) => {
+      runs[OPTIONS[i]] = r.status === "fulfilled" ? r.value : (r.reason as Error).message;
+    });
+    setAlternatives({ runs, busy: false });
+  };
+
   const retrieve = async (key: RunKey) => {
     const strategy: RetrievalStrategy = key === "rrf" || key === "weighted" ? "hybrid" : key;
     const w = Math.round(denseWeight * 100) / 100;
-    const { data, error, response } = await api.POST("/api/v1/corpora/{corpus_id}/retrieve", {
-      params: { path: { corpus_id: summary.corpus.id } },
-      body: {
+    return post({
         query,
         top_k: topK,
         version,
+        mode: "manual",
         strategy,
         bm25: { k1, b },
         hybrid: {
@@ -137,18 +191,20 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
           weights: { sparse: Math.round((1 - w) * 100) / 100, dense: w },
         },
         ...(rerank && key === mode ? { rerank: { enabled: true, model: RERANK_MODEL, candidate_k: poolK } } : {}),
-      },
     });
-    if (!data) throw new Error(errorMessage(error, response.status));
-    return data;
   };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!query.trim() || denseBlocked || hybridError || rerankError) return;
     setRun({ kind: "busy" });
+    setAlternatives({ runs: {}, busy: false });
     try {
-      if (mode === "compare") {
+      if (adaptive) {
+        const baselineKey = mode === "compare" ? null : mode;
+        const [response, baseline] = await Promise.all([routed(), runBaseline && baselineKey ? retrieve(baselineKey) : null]);
+        setRun({ kind: "adaptive", response, baseline: baseline && baselineKey ? { key: baselineKey, response: baseline } : undefined });
+      } else if (mode === "compare") {
         const [sparse, denseRun, rrf, weighted] = await Promise.all(
           (["sparse", "dense", "rrf", "weighted"] as const).map(retrieve),
         );
@@ -161,7 +217,7 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
     }
   };
 
-  const provenance = run.kind === "single" ? [run.response.provenance] : [];
+  const provenance = run.kind === "single" || run.kind === "adaptive" ? [run.response.provenance] : [];
 
   return (
     <div className="grid items-start gap-5 xl:grid-cols-[360px_1fr]">
@@ -190,9 +246,25 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
               {summary.stats.document_count} docs · {summary.stats.chunk_count} chunks in current version
             </p>
             <div className="space-y-1.5">
-              <span className="block font-mono text-[10px] uppercase tracking-[0.14em] text-fg-muted">Strategy</span>
-              <Segmented name="strategy" value={mode} options={MODES} onChange={setMode} />
-              <p className="text-[11px] leading-relaxed text-fg-subtle">{MODE_HELP[mode]}</p>
+              <span className="block font-mono text-[10px] uppercase tracking-[0.14em] text-fg-muted">Routing</span>
+              <Segmented name="routing" value={routing} options={ROUTING} onChange={(r) => { setRouting(r); if (r === "adaptive" && mode === "compare") setMode("sparse"); }} />
+              <p className="text-[11px] leading-relaxed text-fg-subtle">
+                {adaptive
+                  ? "The router analyses the query and chooses strategy, fusion and reranking. Every rule it evaluated is shown."
+                  : "You choose the strategy and its parameters."}
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <span className="block font-mono text-[10px] uppercase tracking-[0.14em] text-fg-muted">{adaptive ? "Fixed baseline" : "Strategy"}</span>
+              <Segmented name="strategy" value={mode} options={adaptive ? MODES.filter((m) => m.value !== "compare") : MODES} onChange={setMode} />
+              {adaptive ? (
+                <label className="flex items-center gap-2 text-[11px] text-fg-muted">
+                  <input type="checkbox" checked={runBaseline} onChange={(e) => setRunBaseline(e.target.checked)} className="accent-[var(--color-trace)]" />
+                  Run this fixed configuration alongside the router
+                </label>
+              ) : (
+                <p className="text-[11px] leading-relaxed text-fg-subtle">{MODE_HELP[mode]}</p>
+              )}
             </div>
             <FormField label="Query" htmlFor="rl-query">
               <Input id="rl-query" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. how does hybrid retrieval fuse rankings?" maxLength={2000} autoFocus />
@@ -277,7 +349,18 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
       <div className="min-w-0">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={run.kind === "single" ? run.response.query.id : run.kind === "compare" ? run.runs.rrf.query.id : run.kind} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}>
-            {run.kind === "compare" ? <CompareView runs={run.runs} /> : <Results run={run} corpusId={summary.corpus.id} />}
+            {run.kind === "compare" ? (
+              <CompareView runs={run.runs} />
+            ) : run.kind === "adaptive" ? (
+              <AdaptiveResults
+                run={run}
+                corpusId={summary.corpus.id}
+                alternatives={alternatives}
+                onRunAlternatives={() => run.response.provenance.routing && runAlternatives(run.response.provenance.routing.decision)}
+              />
+            ) : (
+              <Results run={run} corpusId={summary.corpus.id} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -285,7 +368,36 @@ function Workspace({ corpora, summary, onPickCorpus }: { corpora: CorpusSummary[
   );
 }
 
-function Results({ run, corpusId }: { run: Exclude<Run, { kind: "compare" }>; corpusId: string }) {
+function AdaptiveResults({
+  run,
+  corpusId,
+  alternatives,
+  onRunAlternatives,
+}: {
+  run: Extract<Run, { kind: "adaptive" }>;
+  corpusId: string;
+  alternatives: { runs: AlternativeRuns; busy: boolean };
+  onRunAlternatives: () => void;
+}) {
+  const routing = run.response.provenance.routing;
+  if (!routing) return <Panel><ErrorState title="No routing record">The API returned an adaptive response without routing provenance.</ErrorState></Panel>;
+  return (
+    <div className="space-y-5">
+      <div className="grid items-start gap-5 2xl:grid-cols-2">
+        <QueryIntelligencePanel analysis={routing.analysis} />
+        <div className="space-y-5">
+          <RouterDecisionPanel decision={routing.decision} />
+          <LatencyBreakdown response={run.response} />
+        </div>
+      </div>
+      {run.baseline && <FixedVsAdaptive adaptive={run.response} fixed={run.baseline.response} fixedLabel={RUN_LABEL[run.baseline.key]} />}
+      <AlternativesPanel adaptive={run.response} runs={alternatives.runs} busy={alternatives.busy} onRun={onRunAlternatives} />
+      <Results run={{ kind: "single", response: run.response }} corpusId={corpusId} />
+    </div>
+  );
+}
+
+function Results({ run, corpusId }: { run: Exclude<Run, { kind: "compare" } | { kind: "adaptive" }>; corpusId: string }) {
   if (run.kind === "idle")
     return (
       <Panel>
@@ -386,6 +498,7 @@ function ProvenancePanel({ p }: { p: RetrievalProvenance }) {
           </>
         )}
         {p.reranking && <RerankProvenanceFields r={p.reranking} />}
+        {p.routing && <RoutingProvenanceFields r={p.routing} />}
         <Field label="Configuration"><span className="font-mono text-trace" title={p.configuration_hash}>{shortHash(p.configuration_hash, 12)}</span></Field>
         <Field label="Chunking hash"><span className="font-mono" title={p.chunking_hash}>{shortHash(p.chunking_hash, 12)}</span></Field>
         <Field label="Chunks searched"><span className="num">{s.candidate_chunks}</span></Field>
@@ -488,6 +601,19 @@ function RerankProvenanceFields({ r }: { r: NonNullable<RetrievalProvenance["rer
       <Field label="Rerank latency"><span className="num">{r.latency_ms.toFixed(1)} ms</span></Field>
       <Field label="Upstream config"><span className="font-mono" title={r.upstream_configuration_hash}>{shortHash(r.upstream_configuration_hash, 12)}</span></Field>
       <Field label="Reranker config"><span className="font-mono" title={r.reranker_config_hash}>{shortHash(r.reranker_config_hash, 12)}</span></Field>
+    </>
+  );
+}
+
+function RoutingProvenanceFields({ r }: { r: NonNullable<RetrievalProvenance["routing"]> }) {
+  return (
+    <>
+      <Field label="Analyzer"><span className="font-mono" title={r.routing.analyzer_config_hash}>{r.routing.analyzer_version}</span></Field>
+      <Field label="Policy"><span className="font-mono" title={r.routing.policy_config_hash}>{r.routing.policy_version}</span></Field>
+      <Field label="Routing identity"><span className="font-mono" title={r.routing_hash}>{shortHash(r.routing_hash, 12)}</span></Field>
+      <Field label="Analysis hash"><span className="font-mono" title={r.analysis.analysis_hash}>{shortHash(r.analysis.analysis_hash, 12)}</span></Field>
+      <Field label="Decision hash"><span className="font-mono" title={r.decision.decision_hash}>{shortHash(r.decision.decision_hash, 12)}</span></Field>
+      <Field label="Selected config"><span className="font-mono" title={r.decision.configuration_hash}>{shortHash(r.decision.configuration_hash, 12)}</span></Field>
     </>
   );
 }

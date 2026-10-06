@@ -442,6 +442,213 @@ class RerankReport(Model):
     candidates: list[RerankCandidate] = Field(description="The whole scored pool, by final rank")
 
 
+# --- Query intelligence & routing --------------------------------------------
+
+
+class QuestionType(StrEnum):
+    DEFINITION = "definition"  # what is X, define X, meaning of X
+    PROCEDURAL = "procedural"  # how to, how do I, steps to
+    EXPLANATORY = "explanatory"  # why, how does X work, explain
+    COMPARISON = "comparison"  # compare, difference between, X vs Y
+    LIST = "list"  # list, examples of, what are the
+    BOOLEAN = "boolean"  # is/are/does/can ... (yes/no)
+    FACTOID = "factoid"  # who, when, where, which, how many, other what
+    KEYWORD = "keyword"  # no question form
+
+
+class QueryClass(StrEnum):
+    LEXICAL = "lexical"  # exact anchors dominate: identifiers, quoted phrases, keyword form
+    SEMANTIC = "semantic"  # natural-language need without exact anchors
+    MIXED = "mixed"
+
+
+class Complexity(StrEnum):
+    SIMPLE = "simple"
+    MODERATE = "moderate"
+    COMPLEX = "complex"
+
+
+class EvidenceNeed(StrEnum):
+    SINGLE_PASSAGE = "single_passage"
+    MULTIPLE_PASSAGES = "multiple_passages"
+
+
+class QueryFeatures(Model):
+    """Measured properties of the query text. Every list keeps first-occurrence order."""
+
+    char_count: int
+    token_count: int = Field(description="Word tokens (Unicode word characters)")
+    bm25_terms: list[str] = Field(description="Distinct terms BM25 searches (its analyzer)")
+    key_terms: list[str] = Field(description="bm25_terms that are not function words")
+    function_word_ratio: float = Field(
+        description="Share of word tokens that are function words (stopwords, interrogatives, "
+        "auxiliaries, pronouns, prepositions)"
+    )
+    is_question: bool = Field(description="Ends with '?' or starts with a question/request word")
+    question_word: str | None = Field(description="The leading question or request word")
+    question_type: QuestionType
+    quoted_phrases: list[str]
+    identifiers: list[str] = Field(
+        description="Tokens with digits, inner capitals, underscores, dots or 2+ capitals"
+    )
+    capitalized_terms: list[str] = Field(description="Capitalised words not at sentence start")
+    numbers: list[str]
+    entities: list[str] = Field(description="Quoted phrases, identifiers and capitalised terms")
+    concept_segments: list[str] = Field(
+        description="Parts split on and/or/vs/commas/semicolons that contain a key term"
+    )
+    comparison_markers: list[str]
+    multi_hop_markers: list[str]
+    temporal_markers: list[str]
+    negation_markers: list[str]
+    ambiguity_markers: list[str]
+
+
+class SignalContribution(Model):
+    feature: str
+    value: float = Field(description="The feature's value, scaled to 0..1")
+    weight: float
+    contribution: float = Field(description="value * weight")
+
+
+class QuerySignal(Model):
+    """A 0..1 score that is exactly the clipped sum of its listed contributions."""
+
+    name: str
+    score: float
+    contributions: list[SignalContribution]
+
+
+class QueryLabels(Model):
+    query_class: QueryClass
+    class_margin: float = Field(
+        description="lexical - semantic score; |margin| is the class confidence, not a probability"
+    )
+    complexity: Complexity
+    multi_hop_likely: bool
+    ambiguous: bool
+    evidence_need: EvidenceNeed
+
+
+class TermStatistic(Model):
+    term: str
+    document_frequency: int = Field(description="Chunks in the corpus version containing it")
+    idf: float = Field(description="BM25 idf in this corpus version")
+
+
+class CorpusQuerySignals(Model):
+    """How the query's terms occur in one corpus version (BM25 analyzer, BM25 statistics)."""
+
+    corpus_id: str
+    corpus_version: int
+    analyzer: str
+    chunk_count: int
+    terms: list[TermStatistic]
+    coverage: float = Field(
+        description="Share of key terms (bm25_terms if there are none) found in the version"
+    )
+    missing_terms: list[str] = Field(description="The terms coverage counts that are absent")
+    mean_idf: float | None = Field(description="Mean idf of the terms that are present")
+
+
+class QueryAnalysis(Model):
+    analyzer: str
+    analyzer_version: str
+    config_hash: str = Field(description="Hash of the analyzer's weights and thresholds")
+    query: str
+    normalized_query: str
+    features: QueryFeatures
+    signals: list[QuerySignal]
+    labels: QueryLabels
+    corpus: CorpusQuerySignals | None = None
+    analysis_hash: str = Field(description="Hash of everything above; equal inputs, equal hash")
+
+
+class RetrievalMode(StrEnum):
+    MANUAL = "manual"  # the request's strategy, hybrid and rerank parameters are used as given
+    ADAPTIVE = "adaptive"  # the router chooses strategy, hybrid and rerank parameters
+
+
+class RouteOption(StrEnum):
+    SPARSE = "sparse"
+    DENSE = "dense"
+    HYBRID_RRF = "hybrid_rrf"
+    HYBRID_WEIGHTED = "hybrid_weighted"
+
+
+class RouterParams(Model):
+    analyzer: str = Field(default="heuristic", description="A registered query analyzer")
+    policy: str = Field(default="rules-baseline", description="A registered router policy")
+
+
+class RuleEvaluation(Model):
+    """One policy rule as evaluated for this query: what it read and whether it fired."""
+
+    rule: str
+    description: str = Field(description="The rule as written in the policy")
+    matched: bool
+    inputs: dict[str, float | int | str | bool | None]
+    margin: float | None = Field(
+        default=None, description="Distance of the inputs from the nearest threshold of the rule"
+    )
+    outcome: str | None = Field(default=None, description="What the rule selects when it fires")
+
+
+class RouteAlternative(Model):
+    option: RouteOption
+    selected: bool
+    available: bool
+    unavailable_reason: str | None = None
+    rules: list[str] = Field(description="Policy rules that select this option")
+
+
+class RoutingConfiguration(Model):
+    """The identity of the routing step: which analyzer and policy, at which versions."""
+
+    analyzer: str
+    analyzer_version: str
+    analyzer_config_hash: str
+    policy: str
+    policy_version: str
+    policy_config_hash: str
+
+    def config_hash(self) -> str:
+        return canonical_hash(self.model_dump(mode="json"))
+
+
+class RouterDecision(Model):
+    id: str = Field(default_factory=lambda: new_id("rtd"))
+    query_id: str
+    policy: str
+    policy_version: str
+    policy_config_hash: str
+    analysis_hash: str
+    option: RouteOption = Field(description="The selected retrieval option")
+    preferred: RouteOption = Field(description="The policy's choice before availability")
+    strategy: RetrievalStrategy
+    hybrid: HybridParams | None
+    rerank: RerankParams
+    rules: list[RuleEvaluation] = Field(description="Strategy rules in order, to the first match")
+    rerank_rules: list[RuleEvaluation] = Field(description="Rerank rules, to the first match")
+    alternatives: list[RouteAlternative]
+    margin: float | None = Field(description="The deciding rule's margin; small = near a boundary")
+    rationale: list[str] = Field(description="The fired rules, filled in with measured values")
+    configuration_hash: str = Field(
+        description="Hash of the selected configuration, as the same manual request reports it"
+    )
+    decision_hash: str = Field(description="Hash of the decision, excluding ids and timestamps")
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class RoutingProvenance(Model):
+    routing: RoutingConfiguration
+    routing_hash: str
+    analysis: QueryAnalysis
+    decision: RouterDecision
+    analysis_ms: float = Field(description="Query analysis, including corpus term statistics")
+    decision_ms: float
+
+
 class RetrievalRequest(Model):
     query: str = Field(min_length=1, max_length=2000)
     top_k: int = Field(default=10, ge=1, le=100)
@@ -450,6 +657,11 @@ class RetrievalRequest(Model):
     bm25: Bm25Params = Field(default_factory=Bm25Params)
     hybrid: HybridParams = Field(default_factory=HybridParams)
     rerank: RerankParams = Field(default_factory=RerankParams)
+    mode: RetrievalMode = Field(
+        default=RetrievalMode.MANUAL,
+        description="adaptive: the router replaces strategy, hybrid and rerank",
+    )
+    router: RouterParams = Field(default_factory=RouterParams)
 
     @field_validator("strategy", mode="before")
     @classmethod
@@ -485,10 +697,11 @@ class RetrievalConfiguration(Model):
     embedder: EmbedderSpec | None = None
     hybrid: HybridParams | None = None
     rerank: RerankConfiguration | None = None
+    routing: RoutingConfiguration | None = None
 
     def config_hash(self) -> str:
-        # An unreranked configuration hashes exactly as it did before reranking existed.
-        exclude = {"rerank"} if self.rerank is None else None
+        # Steps that did not run are left out, so hashes from before they existed still hold.
+        exclude = {k for k in ("rerank", "routing") if getattr(self, k) is None}
         return canonical_hash(self.model_dump(mode="json", exclude=exclude))
 
 
@@ -541,6 +754,7 @@ class RetrievalProvenance(Model):
     elapsed_ms: float
     retrieved_at: datetime = Field(default_factory=utcnow)
     reranking: RerankProvenance | None = Field(default=None, description="Reranked requests only")
+    routing: RoutingProvenance | None = Field(default=None, description="Adaptive requests only")
 
 
 class RetrievalResponse(Model):
@@ -596,16 +810,6 @@ class RAGConfiguration(Model):
     def config_hash(self) -> str:
         """Stable hash of behaviour-relevant fields (excludes id and name)."""
         return canonical_hash(self.model_dump(mode="json", exclude={"id", "name"}))
-
-
-class RouterDecision(Model):
-    id: str = Field(default_factory=lambda: new_id("rtd"))
-    query_id: str
-    policy: str
-    query_features: dict[str, Any] = Field(default_factory=dict)
-    selected_strategies: list[RetrievalStrategy]
-    rationale: str
-    created_at: datetime = Field(default_factory=utcnow)
 
 
 # --- Experiments & evaluation ------------------------------------------------

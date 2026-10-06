@@ -36,7 +36,7 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 
 ## Status
 
-**Phase 5, cross-encoder reranking.** What exists and works today:
+**Phase 6, query intelligence and adaptive routing.** What exists and works today:
 
 | Area | State |
 |---|---|
@@ -53,10 +53,12 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 | Hybrid retrieval: RRF (primary) and weighted min-max fusion, per-component ranks/scores/contributions | Implemented; fixed strategy, no silent fallback |
 | `RetrievalConfiguration` + hash in every response | Implemented (the unit the Arena will vary) |
 | Cross-encoder reranking after any strategy: `cross-encoder/ms-marco-MiniLM-L-6-v2` (pinned, local ONNX, CPU), configurable candidate pool and final top-k, per-candidate rank movement | Implemented; no unreranked fallback, full reranking provenance |
-| Retrieval Lab UI: BM25, Dense, Hybrid RRF, Hybrid weighted, four-way comparison, fusion explanation, reranking analysis | Implemented against the real API |
+| Query intelligence: deterministic heuristic analyzer (features, lexical/semantic/complexity signals with contributions, labels, corpus term coverage) | Implemented; a baseline, not a trained model |
+| Adaptive router: rule policy choosing BM25, dense, hybrid RRF or weighted and reranking, with rule traces, margins, alternatives and availability constraints; `mode: "adaptive"`, `POST /api/v1/router/decide` | Implemented; full routing provenance, no superiority claims |
+| Retrieval Lab UI: BM25, Dense, Hybrid RRF, Hybrid weighted, four-way comparison, fusion explanation, reranking analysis, adaptive routing (query intelligence, decision trace, fixed vs adaptive, alternatives) | Implemented against the real API |
 | Retrieval metrics: Recall@K, Precision@K, MRR, nDCG@K | Implemented, `POST /api/v1/evaluation/retrieval` |
-| Adaptive router, Arena, generation | Not built; unregistered strategies return `501` |
-| Other product areas (Forge, Router, Evidence, Arena, …) | Scoped, not built |
+| Evidence and generation, Arena and experiments, replay | Not built; unregistered strategies return `501` |
+| Other product areas (Forge, Evidence, Arena, …) | Scoped, not built |
 
 Numbers on the Overview marked **SAMPLE** (hatched badge) are preview data from
 `apps/web/src/sample/`. They were not measured. Everything marked **LIVE** comes from the API.
@@ -83,10 +85,11 @@ rag-forge/
 │   │   │   ├── domain/       foundational models
 │   │   │   ├── ingestion/    extraction, chunking, ingestion service
 │   │   │   ├── retrieval/    retriever contract, BM25, embeddings, dense, fusion, hybrid, rerank, service
+│   │   │   ├── router/       query analyzer, router policy, adaptive router
 │   │   │   ├── evaluation/   retrieval metrics
 │   │   │   ├── provenance/   environment capture
 │   │   │   ├── storage/      store contract, SQLite + migrations, lexical index, vector index, blobs
-│   │   │   ├── api/          HTTP schemas + routes (system, corpus)
+│   │   │   ├── api/          HTTP schemas + routes (system, router, corpus)
 │   │   │   └── main.py       app factory
 │   │   └── tests/
 │   └── web/                  Next.js 16 (App Router) + TypeScript + Tailwind v4
@@ -105,7 +108,8 @@ rag-forge/
 
 See [docs/architecture.md](docs/architecture.md) for layering,
 [docs/ingestion.md](docs/ingestion.md) for ingestion and versioning,
-[docs/retrieval.md](docs/retrieval.md) for the retrieval contract, BM25, dense and hybrid retrieval and reranking, and
+[docs/retrieval.md](docs/retrieval.md) for the retrieval contract, BM25, dense and hybrid retrieval and reranking,
+[docs/router.md](docs/router.md) for query intelligence and adaptive routing, and
 [docs/research/methodology.md](docs/research/methodology.md) for how comparisons will be run.
 
 ## Technology
@@ -159,8 +163,11 @@ The first dense index build downloads the pinned model (~133 MB) into `~/.cache/
 ## Roadmap
 
 1. ~~**Ingestion and corpus versioning.**~~ Done (Phase 1).
-2. ~~**Lexical retrieval baseline.**~~ Done (Phase 2): BM25 behind the `Retriever` contract; Retrieval Lab.
-3. **Arena v1.** Standard benchmark loaders (e.g. BEIR subsets), recorded runs, measured metrics against the BM25 baseline, Results.
-4. ~~**Dense and hybrid retrieval.**~~ Done (Phases 3–4): dense, RRF and weighted fusion. Next in this track: reranking.
-5. **Router v0.** Rule-based policy over query features that picks a `RetrievalConfiguration` per query, recorded decisions, head-to-head against the fixed BM25/dense/hybrid pipelines.
-6. **Generation and evidence.** Cited answers, claim-level verification, faithfulness.
+2. ~~**Lexical retrieval.**~~ Done (Phase 2): BM25 behind the `Retriever` contract; Retrieval Lab.
+3. ~~**Dense retrieval.**~~ Done (Phase 3).
+4. ~~**Hybrid fusion.**~~ Done (Phase 4): RRF and weighted fusion.
+5. ~~**Cross-encoder reranking.**~~ Done (Phase 5).
+6. ~~**Query intelligence and adaptive routing.**~~ Done (Phase 6): heuristic analyzer, rule policy, recorded decisions.
+7. **Evidence, grounding and generation.** Evidence selection, claims, support and contradiction, cited answers.
+8. **Arena and experiment engine.** Judged datasets, runs, metrics and ablations; routed vs fixed pipelines measured.
+9. **Replay and the research platform.** Reconstructing past runs from provenance; final presentation.

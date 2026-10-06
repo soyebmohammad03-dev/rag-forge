@@ -1,4 +1,4 @@
-"""Query -> corpus/version resolution -> retriever -> (reranker) -> normalised hits + provenance."""
+"""Query -> corpus version -> (router) -> retriever -> (reranker) -> hits + provenance."""
 
 from __future__ import annotations
 
@@ -19,17 +19,21 @@ from rag_forge.domain.models import (
     RerankReport,
     RetrievalConfiguration,
     RetrievalHit,
+    RetrievalMode,
     RetrievalProvenance,
     RetrievalRequest,
     RetrievalResponse,
     RetrievalResult,
     RetrievalStrategy,
+    RoutingConfiguration,
+    RoutingProvenance,
     canonical_hash,
 )
 from rag_forge.ingestion.service import CorpusNotFoundError
 from rag_forge.provenance.environment import capture_environment
 from rag_forge.retrieval.base import Candidate, Retriever, RetrieverOutput
 from rag_forge.retrieval.rerank import Reranker, rank_movement
+from rag_forge.router.service import AdaptiveRouter, RouterComponentNotAvailableError
 from rag_forge.storage.base import CorpusStore
 
 RetrieverFactory = Callable[[RetrievalRequest], Retriever]
@@ -64,20 +68,43 @@ class RetrievalService:
         retrievers: Mapping[RetrievalStrategy, RetrieverFactory],
         embedder: EmbedderSpec | None = None,
         rerankers: Mapping[str, Reranker] | None = None,
+        router: AdaptiveRouter | None = None,
     ) -> None:
         self.store = store
         self.retrievers = retrievers
         self.embedder = embedder  # recorded in configurations that involve dense retrieval
         self.rerankers = dict(rerankers or {})  # keyed by model id; instances hold loaded models
+        self.router = router
 
-    def retrieve(self, corpus_id: str, request: RetrievalRequest) -> RetrievalResponse:
-        started = time.perf_counter()
+    def _resolve(self, corpus_id: str, request: RetrievalRequest) -> tuple[Corpus, int]:
         corpus = self.store.get_corpus(corpus_id)
         if corpus is None:
             raise CorpusNotFoundError(corpus_id)
         version = corpus.version if request.version is None else request.version
         if version > corpus.version:
             raise CorpusVersionNotFoundError(f"corpus has no version {version}")
+        return corpus, version
+
+    def route(
+        self, corpus_id: str, request: RetrievalRequest, query: Query | None = None
+    ) -> tuple[Query, RetrievalRequest, RoutingProvenance]:
+        """The router's decision for a request, without retrieving anything."""
+        corpus, version = self._resolve(corpus_id, request)
+        query = query or Query(text=request.query)
+        if self.router is None:
+            raise RouterComponentNotAvailableError("router", "adaptive", [])
+        routed, routing = self.router.route(
+            corpus, version, request, query.id, lambda r: self._configuration(r, corpus, version)
+        )
+        return query, routed, routing
+
+    def retrieve(self, corpus_id: str, request: RetrievalRequest) -> RetrievalResponse:
+        started = time.perf_counter()
+        corpus, version = self._resolve(corpus_id, request)
+        query = Query(text=request.query)
+        routing: RoutingProvenance | None = None
+        if request.mode is RetrievalMode.ADAPTIVE:  # from here on, an ordinary manual request
+            _, request, routing = self.route(corpus_id, request, query)
         factory = self.retrievers.get(request.strategy)
         if factory is None:
             raise StrategyNotAvailableError(request.strategy, list(self.retrievers))
@@ -89,7 +116,6 @@ class RetrievalService:
 
         retriever = factory(request)
         output = retriever.retrieve(corpus, version, request.query, request.pool_k)
-        query = Query(text=request.query)
         chunks = self.store.get_chunks([c.chunk_id for c in output.candidates])
         members = {dv.id for dv in self.store.members(corpus.id, version).values()}
         chash = corpus.chunking.config_hash()
@@ -115,7 +141,9 @@ class RetrievalService:
                 versions[dv_id] = found
             return versions[dv_id]
 
-        configuration = self._configuration(request, corpus, version)
+        configuration = self._configuration(
+            request, corpus, version, routing.routing if routing else None
+        )
         ranked: list[tuple[Candidate, float, RerankDetail | None]] = [
             (c, c.score, None) for c in output.candidates
         ]
@@ -168,6 +196,7 @@ class RetrievalService:
             environment=capture_environment(),
             elapsed_ms=round((time.perf_counter() - started) * 1000, 3),
             reranking=rerank_provenance,
+            routing=routing,
         )
         return RetrievalResponse(
             query=query,
@@ -212,7 +241,9 @@ class RetrievalService:
             ]
         )
         details = [d for _, d in moved]
-        upstream = configuration.model_copy(update={"rerank": None, "top_k": request.pool_k})
+        upstream = configuration.model_copy(
+            update={"rerank": None, "routing": None, "top_k": request.pool_k}
+        )
         provenance = RerankProvenance(
             reranker=reranker.name,
             info=info,
@@ -234,7 +265,11 @@ class RetrievalService:
         return ranked, report, provenance
 
     def _configuration(
-        self, request: RetrievalRequest, corpus: Corpus, version: int
+        self,
+        request: RetrievalRequest,
+        corpus: Corpus,
+        version: int,
+        routing: RoutingConfiguration | None = None,
     ) -> RetrievalConfiguration:
         """The resolved configuration, holding only parameters that affect this strategy."""
         hybrid = request.strategy is RetrievalStrategy.HYBRID
@@ -256,4 +291,5 @@ class RetrievalService:
                 if request.rerank.enabled
                 else None
             ),
+            routing=routing,
         )

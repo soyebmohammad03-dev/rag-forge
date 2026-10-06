@@ -26,7 +26,7 @@ Packages exist only when they contain code. Current and planned:
 | `ingestion` | Extractors, chunkers, ingestion service, versioning | Present (see [ingestion.md](ingestion.md)) |
 | `retrieval` | `Retriever` contract, BM25, `Embedder` + ONNX embedder, dense index + retriever, `FusionStrategy` (RRF, weighted), `HybridRetriever`, `Reranker` + ONNX cross-encoder | BM25, dense, hybrid and reranking present (see [retrieval.md](retrieval.md)) |
 | `experiments` | Run orchestration, ablation grids | Phase 3 |
-| `router` | Query analysis, policies, `RouterDecision` recording | Phase 4 |
+| `router` | `QueryAnalyzer` + heuristic analyzer, `RouterPolicy` + rule baseline, `AdaptiveRouter` | Present (see [router.md](router.md)) |
 | `knowledge` | Entities, relations, graph retrieval support | Later |
 | `models` | Provider adapters for rerankers and LLMs (embeddings live in `retrieval/embedding.py`) | With the first dependency |
 

@@ -191,8 +191,8 @@ def test_small_pool_and_unreranked_requests_are_unchanged(
     assert all(h.rerank is None for h in plain.hits) and reranker.calls == []
     config = plain.provenance.configuration
     assert config.rerank is None
-    legacy = canonical_hash(config.model_dump(mode="json", exclude={"rerank"}))
-    assert plain.provenance.configuration_hash == legacy  # pre-reranking hashes still hold
+    legacy = canonical_hash(config.model_dump(mode="json", exclude={"rerank", "routing"}))
+    assert plain.provenance.configuration_hash == legacy  # Phase 4 hashes still hold
     disabled = ask(svc, corpus.id, top_k=3, rerank={"enabled": False, "candidate_k": 7})
     assert disabled.provenance.configuration_hash == plain.provenance.configuration_hash
 

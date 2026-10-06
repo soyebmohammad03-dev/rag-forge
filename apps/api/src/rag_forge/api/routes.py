@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, NoReturn
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 
@@ -20,10 +20,19 @@ from rag_forge.api.schemas import (
     RouterRequest,
     RouterResponse,
 )
-from rag_forge.domain.models import Experiment, ExperimentRun, Metric
+from rag_forge.domain.models import (
+    Experiment,
+    ExperimentRun,
+    Metric,
+    RetrievalMode,
+    RetrievalRequest,
+)
 from rag_forge.evaluation import retrieval_metrics as rm
+from rag_forge.ingestion.service import CorpusNotFoundError
 from rag_forge.provenance.environment import capture_environment
 from rag_forge.retrieval.rerank import Reranker
+from rag_forge.retrieval.service import CorpusVersionNotFoundError, RetrievalService
+from rag_forge.router.service import RouterComponentNotAvailableError
 from rag_forge.storage.base import CorpusStore
 
 router = APIRouter(prefix="/api/v1")
@@ -34,16 +43,6 @@ NOT_IMPLEMENTED: dict[int | str, dict[str, Any]] = {501: {"model": NotImplemente
 def _store(request: Request) -> CorpusStore:
     store: CorpusStore = request.app.state.store
     return store
-
-
-def _not_implemented(capability: str) -> NoReturn:
-    raise HTTPException(
-        status.HTTP_501_NOT_IMPLEMENTED,
-        detail=NotImplementedDetail(
-            capability=capability,
-            message=f"{capability} is defined by contract but not implemented yet.",
-        ).model_dump(),
-    )
 
 
 # --- System -------------------------------------------------------------------
@@ -97,8 +96,26 @@ def environment() -> EnvironmentResponse:
 @router.post(
     "/router/decide", response_model=RouterResponse, tags=["router"], responses=NOT_IMPLEMENTED
 )
-def decide(body: RouterRequest) -> RouterResponse:
-    _not_implemented("Router policy")
+def decide(body: RouterRequest, request: Request) -> RouterResponse:
+    """Analyse a query and decide its retrieval configuration without retrieving."""
+    service: RetrievalService = request.app.state.retrieval
+    try:
+        req = RetrievalRequest(
+            query=body.query,
+            top_k=body.top_k,
+            version=body.version,
+            mode=RetrievalMode.ADAPTIVE,
+            router=body.router,
+        )
+        query, routed, routing = service.route(body.corpus_id, req)
+    except ValueError as exc:  # pydantic validation of the derived request (e.g. blank query)
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+    except (CorpusNotFoundError, CorpusVersionNotFoundError) as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except RouterComponentNotAvailableError as exc:
+        detail = NotImplementedDetail(capability="Router", message=str(exc))
+        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail=detail.model_dump()) from exc
+    return RouterResponse(query=query, request=routed, routing=routing)
 
 
 # --- Experiments --------------------------------------------------------------

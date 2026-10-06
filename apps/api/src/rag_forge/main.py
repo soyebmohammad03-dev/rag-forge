@@ -9,7 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from rag_forge import __version__
 from rag_forge.api import corpus, routes
-from rag_forge.domain.models import EmbedderSpec, RerankerSpec, RetrievalStrategy
+from rag_forge.domain.models import (
+    Corpus,
+    DenseIndexState,
+    EmbedderSpec,
+    RerankerSpec,
+    RetrievalStrategy,
+    RouteOption,
+)
 from rag_forge.ingestion.service import IngestionService
 from rag_forge.retrieval.dense import DenseIndexService, DenseRetriever
 from rag_forge.retrieval.embedding import Embedder, OnnxSentenceEmbedder
@@ -17,10 +24,41 @@ from rag_forge.retrieval.hybrid import hybrid_factory
 from rag_forge.retrieval.lexical import Bm25Retriever
 from rag_forge.retrieval.rerank import OnnxCrossEncoder, Reranker
 from rag_forge.retrieval.service import RetrievalService, RetrieverFactory
+from rag_forge.router.analyzer import HeuristicQueryAnalyzer
+from rag_forge.router.policy import RulePolicy
+from rag_forge.router.service import AdaptiveRouter
 from rag_forge.storage.blobs import BlobStore
 from rag_forge.storage.lexical_index import SqliteLexicalIndex
 from rag_forge.storage.sqlite import SqliteStore
 from rag_forge.storage.vector_index import SqliteVectorIndex
+
+
+def make_router(
+    lexical: SqliteLexicalIndex, dense: DenseIndexService, rerankers: list[str]
+) -> AdaptiveRouter:
+    """The adaptive router over this app's indexes. Analyzers and policies register here."""
+
+    def term_statistics(
+        corpus: Corpus, version: int, terms: list[str]
+    ) -> tuple[int, dict[str, int]]:
+        lexical.ensure_indexed(corpus, version)
+        n = lexical.stats(corpus, version).chunks
+        return n, lexical.document_frequencies(corpus, version, terms)
+
+    def availability(corpus: Corpus, version: int) -> dict[RouteOption, str]:
+        state, _ = dense.state(corpus, version)
+        if state is DenseIndexState.READY:
+            return {}
+        reason = f"the dense index for v{version} is {state.value}"
+        return {o: reason for o in RouteOption if o is not RouteOption.SPARSE}
+
+    return AdaptiveRouter(
+        {"heuristic": HeuristicQueryAnalyzer()},
+        {"rules-baseline": RulePolicy()},
+        term_statistics,
+        availability,
+        rerankers,
+    )
 
 
 def create_app(
@@ -57,11 +95,13 @@ def create_app(
         RetrievalStrategy.SPARSE: lambda req: Bm25Retriever(lexical, req.bm25),
         RetrievalStrategy.DENSE: lambda req: DenseRetriever(dense),
     }
+    router = make_router(lexical, dense, [reranker.spec.model])
     app.state.retrieval = RetrievalService(
         store,
         {**single, RetrievalStrategy.HYBRID: hybrid_factory(single)},
         embedder=embedder.spec,
         rerankers={reranker.spec.model: reranker},
+        router=router,
     )
     app.state.reranker = reranker
     app.state.started_at = datetime.now(UTC)

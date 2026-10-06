@@ -20,7 +20,9 @@ from rag_forge.domain.models import (
     EnvironmentSnapshot,
     Metric,
     Query,
-    RouterDecision,
+    RetrievalRequest,
+    RouterParams,
+    RoutingProvenance,
 )
 from rag_forge.storage.base import CorpusStats
 
@@ -114,13 +116,18 @@ class ExperimentCreate(BaseModel):
 
 class RouterRequest(BaseModel):
     corpus_id: str
-    query: str = Field(min_length=1)
-    policy: str
+    query: str = Field(min_length=1, max_length=2000)
+    version: int | None = Field(default=None, ge=0, description="Corpus version; default current")
+    top_k: int = Field(default=10, ge=1, le=100, description="The final top-k the route must serve")
+    router: RouterParams = Field(default_factory=RouterParams)
 
 
 class RouterResponse(BaseModel):
     query: Query
-    decision: RouterDecision
+    request: RetrievalRequest = Field(
+        description="The manual request the router selected: sending it reproduces the route"
+    )
+    routing: RoutingProvenance
 
 
 class RetrievalEvaluationRequest(BaseModel):

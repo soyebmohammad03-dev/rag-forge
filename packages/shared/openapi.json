@@ -53,6 +53,7 @@
           "router"
         ],
         "summary": "Decide",
+        "description": "Analyse a query and decide its retrieval configuration without retrieving.",
         "operationId": "decide_api_v1_router_decide_post",
         "requestBody": {
           "content": {
@@ -817,7 +818,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RetrievalRequest"
+                "$ref": "#/components/schemas/RetrievalRequest-Input"
               }
             }
           }
@@ -1207,6 +1208,15 @@
         ],
         "title": "ChunkingStrategy"
       },
+      "Complexity": {
+        "type": "string",
+        "enum": [
+          "simple",
+          "moderate",
+          "complex"
+        ],
+        "title": "Complexity"
+      },
       "ComponentHealth": {
         "properties": {
           "name": {
@@ -1387,6 +1397,72 @@
           "name"
         ],
         "title": "CorpusCreate"
+      },
+      "CorpusQuerySignals": {
+        "properties": {
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "corpus_version": {
+            "type": "integer",
+            "title": "Corpus Version"
+          },
+          "analyzer": {
+            "type": "string",
+            "title": "Analyzer"
+          },
+          "chunk_count": {
+            "type": "integer",
+            "title": "Chunk Count"
+          },
+          "terms": {
+            "items": {
+              "$ref": "#/components/schemas/TermStatistic"
+            },
+            "type": "array",
+            "title": "Terms"
+          },
+          "coverage": {
+            "type": "number",
+            "title": "Coverage",
+            "description": "Share of key terms (bm25_terms if there are none) found in the version"
+          },
+          "missing_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Terms",
+            "description": "The terms coverage counts that are absent"
+          },
+          "mean_idf": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Idf",
+            "description": "Mean idf of the terms that are present"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "corpus_id",
+          "corpus_version",
+          "analyzer",
+          "chunk_count",
+          "terms",
+          "coverage",
+          "missing_terms",
+          "mean_idf"
+        ],
+        "title": "CorpusQuerySignals",
+        "description": "How the query's terms occur in one corpus version (BM25 analyzer, BM25 statistics)."
       },
       "CorpusStats": {
         "properties": {
@@ -2036,6 +2112,14 @@
           "packages"
         ],
         "title": "EnvironmentSnapshot"
+      },
+      "EvidenceNeed": {
+        "type": "string",
+        "enum": [
+          "single_passage",
+          "multiple_passages"
+        ],
+        "title": "EvidenceNeed"
       },
       "Experiment": {
         "properties": {
@@ -2721,6 +2805,322 @@
         ],
         "title": "Query"
       },
+      "QueryAnalysis": {
+        "properties": {
+          "analyzer": {
+            "type": "string",
+            "title": "Analyzer"
+          },
+          "analyzer_version": {
+            "type": "string",
+            "title": "Analyzer Version"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash",
+            "description": "Hash of the analyzer's weights and thresholds"
+          },
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "normalized_query": {
+            "type": "string",
+            "title": "Normalized Query"
+          },
+          "features": {
+            "$ref": "#/components/schemas/QueryFeatures"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/QuerySignal"
+            },
+            "type": "array",
+            "title": "Signals"
+          },
+          "labels": {
+            "$ref": "#/components/schemas/QueryLabels"
+          },
+          "corpus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorpusQuerySignals"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analysis_hash": {
+            "type": "string",
+            "title": "Analysis Hash",
+            "description": "Hash of everything above; equal inputs, equal hash"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "analyzer",
+          "analyzer_version",
+          "config_hash",
+          "query",
+          "normalized_query",
+          "features",
+          "signals",
+          "labels",
+          "corpus",
+          "analysis_hash"
+        ],
+        "title": "QueryAnalysis"
+      },
+      "QueryClass": {
+        "type": "string",
+        "enum": [
+          "lexical",
+          "semantic",
+          "mixed"
+        ],
+        "title": "QueryClass"
+      },
+      "QueryFeatures": {
+        "properties": {
+          "char_count": {
+            "type": "integer",
+            "title": "Char Count"
+          },
+          "token_count": {
+            "type": "integer",
+            "title": "Token Count",
+            "description": "Word tokens (Unicode word characters)"
+          },
+          "bm25_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Bm25 Terms",
+            "description": "Distinct terms BM25 searches (its analyzer)"
+          },
+          "key_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Key Terms",
+            "description": "bm25_terms that are not function words"
+          },
+          "function_word_ratio": {
+            "type": "number",
+            "title": "Function Word Ratio",
+            "description": "Share of word tokens that are function words (stopwords, interrogatives, auxiliaries, pronouns, prepositions)"
+          },
+          "is_question": {
+            "type": "boolean",
+            "title": "Is Question",
+            "description": "Ends with '?' or starts with a question/request word"
+          },
+          "question_word": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Word",
+            "description": "The leading question or request word"
+          },
+          "question_type": {
+            "$ref": "#/components/schemas/QuestionType"
+          },
+          "quoted_phrases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Quoted Phrases"
+          },
+          "identifiers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Identifiers",
+            "description": "Tokens with digits, inner capitals, underscores, dots or 2+ capitals"
+          },
+          "capitalized_terms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capitalized Terms",
+            "description": "Capitalised words not at sentence start"
+          },
+          "numbers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Numbers"
+          },
+          "entities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Entities",
+            "description": "Quoted phrases, identifiers and capitalised terms"
+          },
+          "concept_segments": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Concept Segments",
+            "description": "Parts split on and/or/vs/commas/semicolons that contain a key term"
+          },
+          "comparison_markers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Comparison Markers"
+          },
+          "multi_hop_markers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Multi Hop Markers"
+          },
+          "temporal_markers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Temporal Markers"
+          },
+          "negation_markers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Negation Markers"
+          },
+          "ambiguity_markers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ambiguity Markers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "char_count",
+          "token_count",
+          "bm25_terms",
+          "key_terms",
+          "function_word_ratio",
+          "is_question",
+          "question_word",
+          "question_type",
+          "quoted_phrases",
+          "identifiers",
+          "capitalized_terms",
+          "numbers",
+          "entities",
+          "concept_segments",
+          "comparison_markers",
+          "multi_hop_markers",
+          "temporal_markers",
+          "negation_markers",
+          "ambiguity_markers"
+        ],
+        "title": "QueryFeatures",
+        "description": "Measured properties of the query text. Every list keeps first-occurrence order."
+      },
+      "QueryLabels": {
+        "properties": {
+          "query_class": {
+            "$ref": "#/components/schemas/QueryClass"
+          },
+          "class_margin": {
+            "type": "number",
+            "title": "Class Margin",
+            "description": "lexical - semantic score; |margin| is the class confidence, not a probability"
+          },
+          "complexity": {
+            "$ref": "#/components/schemas/Complexity"
+          },
+          "multi_hop_likely": {
+            "type": "boolean",
+            "title": "Multi Hop Likely"
+          },
+          "ambiguous": {
+            "type": "boolean",
+            "title": "Ambiguous"
+          },
+          "evidence_need": {
+            "$ref": "#/components/schemas/EvidenceNeed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query_class",
+          "class_margin",
+          "complexity",
+          "multi_hop_likely",
+          "ambiguous",
+          "evidence_need"
+        ],
+        "title": "QueryLabels"
+      },
+      "QuerySignal": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "contributions": {
+            "items": {
+              "$ref": "#/components/schemas/SignalContribution"
+            },
+            "type": "array",
+            "title": "Contributions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "score",
+          "contributions"
+        ],
+        "title": "QuerySignal",
+        "description": "A 0..1 score that is exactly the clipped sum of its listed contributions."
+      },
+      "QuestionType": {
+        "type": "string",
+        "enum": [
+          "definition",
+          "procedural",
+          "explanatory",
+          "comparison",
+          "list",
+          "boolean",
+          "factoid",
+          "keyword"
+        ],
+        "title": "QuestionType"
+      },
       "RankMovement": {
         "type": "string",
         "enum": [
@@ -2840,7 +3240,7 @@
         "title": "RerankDetail",
         "description": "How the reranker moved one candidate. Ranks are 1-based positions in the candidate pool."
       },
-      "RerankParams": {
+      "RerankParams-Input": {
         "properties": {
           "enabled": {
             "type": "boolean",
@@ -2864,6 +3264,37 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "title": "RerankParams"
+      },
+      "RerankParams-Output": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": false
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "description": "A registered reranker model",
+            "default": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+          },
+          "candidate_k": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Candidate K",
+            "description": "Upstream candidates the reranker scores",
+            "default": 50
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled",
+          "model",
+          "candidate_k"
+        ],
         "title": "RerankParams"
       },
       "RerankProvenance": {
@@ -3104,6 +3535,16 @@
                 "type": "null"
               }
             ]
+          },
+          "routing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoutingConfiguration"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -3117,7 +3558,8 @@
           "bm25",
           "embedder",
           "hybrid",
-          "rerank"
+          "rerank",
+          "routing"
         ],
         "title": "RetrievalConfiguration",
         "description": "Everything that determines a ranked result set, resolved. The unit an experiment varies."
@@ -3241,6 +3683,14 @@
         "title": "RetrievalHit",
         "description": "One retrieved chunk with everything needed to display and trace it."
       },
+      "RetrievalMode": {
+        "type": "string",
+        "enum": [
+          "manual",
+          "adaptive"
+        ],
+        "title": "RetrievalMode"
+      },
       "RetrievalProvenance": {
         "properties": {
           "corpus_id": {
@@ -3327,6 +3777,17 @@
               }
             ],
             "description": "Reranked requests only"
+          },
+          "routing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoutingProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Adaptive requests only"
           }
         },
         "additionalProperties": false,
@@ -3347,11 +3808,12 @@
           "environment",
           "elapsed_ms",
           "retrieved_at",
-          "reranking"
+          "reranking",
+          "routing"
         ],
         "title": "RetrievalProvenance"
       },
-      "RetrievalRequest": {
+      "RetrievalRequest-Input": {
         "properties": {
           "query": {
             "type": "string",
@@ -3390,13 +3852,86 @@
             "$ref": "#/components/schemas/HybridParams-Input"
           },
           "rerank": {
-            "$ref": "#/components/schemas/RerankParams"
+            "$ref": "#/components/schemas/RerankParams-Input"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/RetrievalMode",
+            "description": "adaptive: the router replaces strategy, hybrid and rerank",
+            "default": "manual"
+          },
+          "router": {
+            "$ref": "#/components/schemas/RouterParams-Input"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "query"
+        ],
+        "title": "RetrievalRequest"
+      },
+      "RetrievalRequest-Output": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "default": 10
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version",
+            "description": "Corpus version; default current"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/RetrievalStrategy",
+            "default": "sparse"
+          },
+          "bm25": {
+            "$ref": "#/components/schemas/Bm25Params-Output"
+          },
+          "hybrid": {
+            "$ref": "#/components/schemas/HybridParams-Output"
+          },
+          "rerank": {
+            "$ref": "#/components/schemas/RerankParams-Output"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/RetrievalMode",
+            "description": "adaptive: the router replaces strategy, hybrid and rerank",
+            "default": "manual"
+          },
+          "router": {
+            "$ref": "#/components/schemas/RouterParams-Output"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query",
+          "top_k",
+          "version",
+          "strategy",
+          "bm25",
+          "hybrid",
+          "rerank",
+          "mode",
+          "router"
         ],
         "title": "RetrievalRequest"
       },
@@ -3514,6 +4049,60 @@
         ],
         "title": "RetrievalStrategy"
       },
+      "RouteAlternative": {
+        "properties": {
+          "option": {
+            "$ref": "#/components/schemas/RouteOption"
+          },
+          "selected": {
+            "type": "boolean",
+            "title": "Selected"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          },
+          "rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rules",
+            "description": "Policy rules that select this option"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "option",
+          "selected",
+          "available",
+          "unavailable_reason",
+          "rules"
+        ],
+        "title": "RouteAlternative"
+      },
+      "RouteOption": {
+        "type": "string",
+        "enum": [
+          "sparse",
+          "dense",
+          "hybrid_rrf",
+          "hybrid_weighted"
+        ],
+        "title": "RouteOption"
+      },
       "RouterDecision": {
         "properties": {
           "id": {
@@ -3528,21 +4117,94 @@
             "type": "string",
             "title": "Policy"
           },
-          "query_features": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Query Features"
+          "policy_version": {
+            "type": "string",
+            "title": "Policy Version"
           },
-          "selected_strategies": {
+          "policy_config_hash": {
+            "type": "string",
+            "title": "Policy Config Hash"
+          },
+          "analysis_hash": {
+            "type": "string",
+            "title": "Analysis Hash"
+          },
+          "option": {
+            "$ref": "#/components/schemas/RouteOption",
+            "description": "The selected retrieval option"
+          },
+          "preferred": {
+            "$ref": "#/components/schemas/RouteOption",
+            "description": "The policy's choice before availability"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/RetrievalStrategy"
+          },
+          "hybrid": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HybridParams-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rerank": {
+            "$ref": "#/components/schemas/RerankParams-Output"
+          },
+          "rules": {
             "items": {
-              "$ref": "#/components/schemas/RetrievalStrategy"
+              "$ref": "#/components/schemas/RuleEvaluation"
             },
             "type": "array",
-            "title": "Selected Strategies"
+            "title": "Rules",
+            "description": "Strategy rules in order, to the first match"
+          },
+          "rerank_rules": {
+            "items": {
+              "$ref": "#/components/schemas/RuleEvaluation"
+            },
+            "type": "array",
+            "title": "Rerank Rules",
+            "description": "Rerank rules, to the first match"
+          },
+          "alternatives": {
+            "items": {
+              "$ref": "#/components/schemas/RouteAlternative"
+            },
+            "type": "array",
+            "title": "Alternatives"
+          },
+          "margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin",
+            "description": "The deciding rule's margin; small = near a boundary"
           },
           "rationale": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rationale",
+            "description": "The fired rules, filled in with measured values"
+          },
+          "configuration_hash": {
             "type": "string",
-            "title": "Rationale"
+            "title": "Configuration Hash",
+            "description": "Hash of the selected configuration, as the same manual request reports it"
+          },
+          "decision_hash": {
+            "type": "string",
+            "title": "Decision Hash",
+            "description": "Hash of the decision, excluding ids and timestamps"
           },
           "created_at": {
             "type": "string",
@@ -3556,12 +4218,66 @@
           "id",
           "query_id",
           "policy",
-          "query_features",
-          "selected_strategies",
+          "policy_version",
+          "policy_config_hash",
+          "analysis_hash",
+          "option",
+          "preferred",
+          "strategy",
+          "hybrid",
+          "rerank",
+          "rules",
+          "rerank_rules",
+          "alternatives",
+          "margin",
           "rationale",
+          "configuration_hash",
+          "decision_hash",
           "created_at"
         ],
         "title": "RouterDecision"
+      },
+      "RouterParams-Input": {
+        "properties": {
+          "analyzer": {
+            "type": "string",
+            "title": "Analyzer",
+            "description": "A registered query analyzer",
+            "default": "heuristic"
+          },
+          "policy": {
+            "type": "string",
+            "title": "Policy",
+            "description": "A registered router policy",
+            "default": "rules-baseline"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RouterParams"
+      },
+      "RouterParams-Output": {
+        "properties": {
+          "analyzer": {
+            "type": "string",
+            "title": "Analyzer",
+            "description": "A registered query analyzer",
+            "default": "heuristic"
+          },
+          "policy": {
+            "type": "string",
+            "title": "Policy",
+            "description": "A registered router policy",
+            "default": "rules-baseline"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "analyzer",
+          "policy"
+        ],
+        "title": "RouterParams"
       },
       "RouterRequest": {
         "properties": {
@@ -3571,19 +4287,39 @@
           },
           "query": {
             "type": "string",
+            "maxLength": 2000,
             "minLength": 1,
             "title": "Query"
           },
-          "policy": {
-            "type": "string",
-            "title": "Policy"
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version",
+            "description": "Corpus version; default current"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "description": "The final top-k the route must serve",
+            "default": 10
+          },
+          "router": {
+            "$ref": "#/components/schemas/RouterParams-Input"
           }
         },
         "type": "object",
         "required": [
           "corpus_id",
-          "query",
-          "policy"
+          "query"
         ],
         "title": "RouterRequest"
       },
@@ -3592,16 +4328,205 @@
           "query": {
             "$ref": "#/components/schemas/Query"
           },
-          "decision": {
-            "$ref": "#/components/schemas/RouterDecision"
+          "request": {
+            "$ref": "#/components/schemas/RetrievalRequest-Output",
+            "description": "The manual request the router selected: sending it reproduces the route"
+          },
+          "routing": {
+            "$ref": "#/components/schemas/RoutingProvenance"
           }
         },
         "type": "object",
         "required": [
           "query",
-          "decision"
+          "request",
+          "routing"
         ],
         "title": "RouterResponse"
+      },
+      "RoutingConfiguration": {
+        "properties": {
+          "analyzer": {
+            "type": "string",
+            "title": "Analyzer"
+          },
+          "analyzer_version": {
+            "type": "string",
+            "title": "Analyzer Version"
+          },
+          "analyzer_config_hash": {
+            "type": "string",
+            "title": "Analyzer Config Hash"
+          },
+          "policy": {
+            "type": "string",
+            "title": "Policy"
+          },
+          "policy_version": {
+            "type": "string",
+            "title": "Policy Version"
+          },
+          "policy_config_hash": {
+            "type": "string",
+            "title": "Policy Config Hash"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "analyzer",
+          "analyzer_version",
+          "analyzer_config_hash",
+          "policy",
+          "policy_version",
+          "policy_config_hash"
+        ],
+        "title": "RoutingConfiguration",
+        "description": "The identity of the routing step: which analyzer and policy, at which versions."
+      },
+      "RoutingProvenance": {
+        "properties": {
+          "routing": {
+            "$ref": "#/components/schemas/RoutingConfiguration"
+          },
+          "routing_hash": {
+            "type": "string",
+            "title": "Routing Hash"
+          },
+          "analysis": {
+            "$ref": "#/components/schemas/QueryAnalysis"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/RouterDecision"
+          },
+          "analysis_ms": {
+            "type": "number",
+            "title": "Analysis Ms",
+            "description": "Query analysis, including corpus term statistics"
+          },
+          "decision_ms": {
+            "type": "number",
+            "title": "Decision Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "routing",
+          "routing_hash",
+          "analysis",
+          "decision",
+          "analysis_ms",
+          "decision_ms"
+        ],
+        "title": "RoutingProvenance"
+      },
+      "RuleEvaluation": {
+        "properties": {
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "The rule as written in the policy"
+          },
+          "matched": {
+            "type": "boolean",
+            "title": "Matched"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Inputs"
+          },
+          "margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin",
+            "description": "Distance of the inputs from the nearest threshold of the rule"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome",
+            "description": "What the rule selects when it fires"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rule",
+          "description",
+          "matched",
+          "inputs",
+          "margin",
+          "outcome"
+        ],
+        "title": "RuleEvaluation",
+        "description": "One policy rule as evaluated for this query: what it read and whether it fired."
+      },
+      "SignalContribution": {
+        "properties": {
+          "feature": {
+            "type": "string",
+            "title": "Feature"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value",
+            "description": "The feature's value, scaled to 0..1"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          },
+          "contribution": {
+            "type": "number",
+            "title": "Contribution",
+            "description": "value * weight"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "feature",
+          "value",
+          "weight",
+          "contribution"
+        ],
+        "title": "SignalContribution"
       },
       "SupportedFormat": {
         "properties": {
@@ -3628,6 +4553,32 @@
           "parser"
         ],
         "title": "SupportedFormat"
+      },
+      "TermStatistic": {
+        "properties": {
+          "term": {
+            "type": "string",
+            "title": "Term"
+          },
+          "document_frequency": {
+            "type": "integer",
+            "title": "Document Frequency",
+            "description": "Chunks in the corpus version containing it"
+          },
+          "idf": {
+            "type": "number",
+            "title": "Idf",
+            "description": "BM25 idf in this corpus version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "term",
+          "document_frequency",
+          "idf"
+        ],
+        "title": "TermStatistic"
       },
       "ValidationError": {
         "properties": {
