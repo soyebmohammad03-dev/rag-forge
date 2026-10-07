@@ -120,95 +120,6 @@
         }
       }
     },
-    "/api/v1/experiments": {
-      "get": {
-        "tags": [
-          "experiments"
-        ],
-        "summary": "List Experiments",
-        "operationId": "list_experiments_api_v1_experiments_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/Experiment"
-                  },
-                  "type": "array",
-                  "title": "Response List Experiments Api V1 Experiments Get"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "experiments"
-        ],
-        "summary": "Create Experiment",
-        "operationId": "create_experiment_api_v1_experiments_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ExperimentCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Experiment"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/runs": {
-      "get": {
-        "tags": [
-          "experiments"
-        ],
-        "summary": "List Runs",
-        "operationId": "list_runs_api_v1_runs_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ExperimentRun"
-                  },
-                  "type": "array",
-                  "title": "Response List Runs Api V1 Runs Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/evaluation/retrieval": {
       "post": {
         "tags": [
@@ -1065,10 +976,1058 @@
           }
         }
       }
+    },
+    "/api/v1/arena/overview": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Overview",
+        "operationId": "overview_api_v1_arena_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArenaOverview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/arena/metrics": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Metric Definitions",
+        "description": "Every metric: family, version, required annotations and outputs, unit, direction.",
+        "operationId": "metric_definitions_api_v1_arena_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MetricDefinition"
+                  },
+                  "type": "array",
+                  "title": "Response Metric Definitions Api V1 Arena Metrics Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/arena/presets": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Arena Presets",
+        "description": "Arm templates and suggested ablations. Templates, not results: nothing runs by default.",
+        "operationId": "arena_presets_api_v1_arena_presets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArenaPresets"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/benchmarks": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "List Datasets",
+        "operationId": "list_datasets_api_v1_benchmarks_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DatasetSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Datasets Api V1 Benchmarks Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Create Dataset",
+        "description": "Register a user benchmark. Annotations are checked against the pinned corpus version.\nUnchanged content returns the existing version; changed content creates the next one.",
+        "operationId": "create_dataset_api_v1_benchmarks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BenchmarkDatasetCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkDataset"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/benchmarks/development": {
+      "post": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Install Development",
+        "description": "Create the bundled development corpus (and its dense index) and register its dataset.\nIdempotent. The development set validates the pipeline; it does not rank methods.",
+        "operationId": "install_development_api_v1_benchmarks_development_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkDataset"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/benchmarks/{dataset_id}": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Get Dataset",
+        "operationId": "get_dataset_api_v1_benchmarks__dataset_id__get",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkDataset"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/arena/configurations/resolve": {
+      "post": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Resolve Configurations",
+        "description": "Snapshots, hashes and differences for a candidate matrix, without creating anything.",
+        "operationId": "resolve_configurations_api_v1_arena_configurations_resolve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotImplementedDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/experiments": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "List Experiments",
+        "operationId": "list_experiments_api_v1_experiments_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Experiment"
+                  },
+                  "type": "array",
+                  "title": "Response List Experiments Api V1 Experiments Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Create Experiment",
+        "description": "Resolve every arm into an immutable configuration snapshot and validate the ablations.",
+        "operationId": "create_experiment_api_v1_experiments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperimentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Experiment"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotImplementedDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/experiments/{experiment_id}": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Get Experiment",
+        "operationId": "get_experiment_api_v1_experiments__experiment_id__get",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Experiment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Experiment"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/experiments/{experiment_id}/runs": {
+      "post": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Start Run",
+        "description": "Queue a run of every arm over the dataset's cases; poll GET /runs/{id} for progress.",
+        "operationId": "start_run_api_v1_experiments__experiment_id__runs_post",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Experiment Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentRun"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Experiment Runs",
+        "operationId": "experiment_runs_api_v1_experiments__experiment_id__runs_get",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Experiment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExperimentRun"
+                  },
+                  "title": "Response Experiment Runs Api V1 Experiments  Experiment Id  Runs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "List Runs",
+        "operationId": "list_runs_api_v1_runs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunDigest"
+                  },
+                  "type": "array",
+                  "title": "Response List Runs Api V1 Runs Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Get Run",
+        "operationId": "get_run_api_v1_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentRun"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/cases": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Run Cases",
+        "description": "Per-case results, in dataset order then arm order. Failed cases are included.",
+        "operationId": "run_cases_api_v1_runs__run_id__cases_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "arm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Arm"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CaseStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunCase"
+                  },
+                  "title": "Response Run Cases Api V1 Runs  Run Id  Cases Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/cases/{case_id}": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Case View",
+        "description": "One benchmark case, with its annotations, across every arm of the run.",
+        "operationId": "case_view_api_v1_runs__run_id__cases__case_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/leaderboard": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Leaderboard",
+        "operationId": "leaderboard_api_v1_runs__run_id__leaderboard_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "ndcg@10",
+              "title": "Metric"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Leaderboard"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/compare": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Compare Arms",
+        "description": "Paired comparison of two arms of one run over the cases both evaluated.",
+        "operationId": "compare_arms_api_v1_runs__run_id__compare_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "baseline",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Baseline"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Variant"
+            }
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Metric"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comparison"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/arena/compare": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Compare Runs",
+        "description": "Paired comparison across runs. Refused (comparable: false) when the datasets, corpus\nversions or metric definitions differ.",
+        "operationId": "compare_runs_api_v1_arena_compare_get",
+        "parameters": [
+          {
+            "name": "baseline_run",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Baseline Run"
+            }
+          },
+          {
+            "name": "baseline_arm",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Baseline Arm"
+            }
+          },
+          {
+            "name": "variant_run",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Variant Run"
+            }
+          },
+          {
+            "name": "variant_arm",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Variant Arm"
+            }
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Metric"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comparison"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/artifacts/{artifact_id}": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Artifact",
+        "description": "The full pipeline trace recorded for one case of one arm.",
+        "operationId": "artifact_api_v1_artifacts__artifact_id__get",
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Artifact Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactTrace"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Ablation": {
+        "properties": {
+          "baseline": {
+            "type": "string",
+            "title": "Baseline"
+          },
+          "variant": {
+            "type": "string",
+            "title": "Variant"
+          },
+          "factor": {
+            "type": "string",
+            "title": "Factor"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "factors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Factors",
+            "description": "Arm settings that differ, e.g. retrieval.rerank"
+          },
+          "single_factor": {
+            "type": "boolean",
+            "title": "Single Factor",
+            "description": "Exactly one arm setting differs"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigChange"
+            },
+            "type": "array",
+            "title": "Changes",
+            "description": "Every resolved snapshot field that differs"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseline",
+          "variant",
+          "factor",
+          "note",
+          "factors",
+          "single_factor",
+          "changes"
+        ],
+        "title": "Ablation"
+      },
+      "AblationSpec-Input": {
+        "properties": {
+          "baseline": {
+            "type": "string",
+            "title": "Baseline",
+            "description": "Arm name"
+          },
+          "variant": {
+            "type": "string",
+            "title": "Variant",
+            "description": "Arm name"
+          },
+          "factor": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Factor",
+            "description": "What the ablation varies"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseline",
+          "variant",
+          "factor"
+        ],
+        "title": "AblationSpec"
+      },
+      "AblationSpec-Output": {
+        "properties": {
+          "baseline": {
+            "type": "string",
+            "title": "Baseline",
+            "description": "Arm name"
+          },
+          "variant": {
+            "type": "string",
+            "title": "Variant",
+            "description": "Arm name"
+          },
+          "factor": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Factor",
+            "description": "What the ablation varies"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseline",
+          "variant",
+          "factor",
+          "note"
+        ],
+        "title": "AblationSpec"
+      },
+      "Annotation": {
+        "type": "string",
+        "enum": [
+          "relevance",
+          "reference_answer",
+          "answerable",
+          "expected_evidence"
+        ],
+        "title": "Annotation"
+      },
       "AnswerGrounding": {
         "type": "string",
         "enum": [
@@ -1089,6 +2048,664 @@
           "not_generated"
         ],
         "title": "AnswerStatus"
+      },
+      "ArenaOverview": {
+        "properties": {
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetSummary"
+            },
+            "type": "array",
+            "title": "Datasets"
+          },
+          "experiments": {
+            "type": "integer",
+            "title": "Experiments"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RunDigest"
+            },
+            "type": "array",
+            "title": "Runs",
+            "description": "Most recent first"
+          },
+          "metric_registry": {
+            "type": "string",
+            "title": "Metric Registry"
+          },
+          "stats_method": {
+            "$ref": "#/components/schemas/StatsMethod"
+          }
+        },
+        "type": "object",
+        "required": [
+          "datasets",
+          "experiments",
+          "runs",
+          "metric_registry",
+          "stats_method"
+        ],
+        "title": "ArenaOverview"
+      },
+      "ArenaPresets": {
+        "properties": {
+          "arms": {
+            "items": {
+              "$ref": "#/components/schemas/Arm-Output"
+            },
+            "type": "array",
+            "title": "Arms"
+          },
+          "ablations": {
+            "items": {
+              "$ref": "#/components/schemas/AblationSpec-Output"
+            },
+            "type": "array",
+            "title": "Ablations"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricSettings-Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "arms",
+          "ablations",
+          "metrics"
+        ],
+        "title": "ArenaPresets"
+      },
+      "Arm-Input": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,47}$",
+            "title": "Name"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
+          "pipeline": {
+            "$ref": "#/components/schemas/PipelineKind",
+            "default": "retrieval"
+          },
+          "retrieval": {
+            "$ref": "#/components/schemas/RetrievalTemplate-Input"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceParams-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationParams-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "grounding": {
+            "$ref": "#/components/schemas/GroundingParams-Input"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "Arm",
+        "description": "One configuration under test."
+      },
+      "Arm-Output": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,47}$",
+            "title": "Name"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
+          "pipeline": {
+            "$ref": "#/components/schemas/PipelineKind",
+            "default": "retrieval"
+          },
+          "retrieval": {
+            "$ref": "#/components/schemas/RetrievalTemplate-Output"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceParams-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationParams-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "grounding": {
+            "$ref": "#/components/schemas/GroundingParams-Output"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "label",
+          "pipeline",
+          "retrieval",
+          "evidence",
+          "generation",
+          "grounding"
+        ],
+        "title": "Arm",
+        "description": "One configuration under test."
+      },
+      "ArmRef": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "arm": {
+            "type": "string",
+            "title": "Arm"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_id",
+          "arm",
+          "config_hash",
+          "label"
+        ],
+        "title": "ArmRef"
+      },
+      "ArmSummary": {
+        "properties": {
+          "arm": {
+            "type": "string",
+            "title": "Arm"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "pipeline": {
+            "$ref": "#/components/schemas/PipelineKind"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash"
+          },
+          "cases": {
+            "type": "integer",
+            "title": "Cases"
+          },
+          "succeeded": {
+            "type": "integer",
+            "title": "Succeeded"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "failure_types": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Failure Types"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricSummary"
+            },
+            "type": "array",
+            "title": "Metrics"
+          },
+          "skipped_reasons": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Skipped Reasons",
+            "description": "Metric -> why some cases skipped it"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "arm",
+          "label",
+          "pipeline",
+          "config_hash",
+          "cases",
+          "succeeded",
+          "failed",
+          "failure_types",
+          "metrics",
+          "skipped_reasons"
+        ],
+        "title": "ArmSummary"
+      },
+      "ArtifactTrace": {
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "title": "Artifact Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "rag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RagResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "rag_trace artifacts"
+          },
+          "retrieval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetrievalResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "retrieval_trace artifacts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "artifact_id",
+          "kind",
+          "rag",
+          "retrieval"
+        ],
+        "title": "ArtifactTrace"
+      },
+      "BenchmarkCase-Input": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+            "title": "Id"
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "relevant_documents": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Relevant Documents",
+            "description": "Filename -> graded relevance (> 0 relevant, 0 judged non-relevant)"
+          },
+          "relevant_chunks": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Relevant Chunks",
+            "description": "Chunk id -> graded relevance; takes precedence"
+          },
+          "reference_answer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Answer"
+          },
+          "answerable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answerable",
+            "description": "null = not judged; false = the corpus cannot answer it"
+          },
+          "expected_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Expected Evidence",
+            "description": "Filenames the selected evidence should include"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "query"
+        ],
+        "title": "BenchmarkCase",
+        "description": "One query with whatever ground truth exists for it. Every annotation is optional."
+      },
+      "BenchmarkCase-Output": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+            "title": "Id"
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "relevant_documents": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Relevant Documents",
+            "description": "Filename -> graded relevance (> 0 relevant, 0 judged non-relevant)"
+          },
+          "relevant_chunks": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Relevant Chunks",
+            "description": "Chunk id -> graded relevance; takes precedence"
+          },
+          "reference_answer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Answer"
+          },
+          "answerable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answerable",
+            "description": "null = not judged; false = the corpus cannot answer it"
+          },
+          "expected_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Expected Evidence",
+            "description": "Filenames the selected evidence should include"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "query",
+          "relevant_documents",
+          "relevant_chunks",
+          "reference_answer",
+          "answerable",
+          "expected_evidence",
+          "tags",
+          "metadata"
+        ],
+        "title": "BenchmarkCase",
+        "description": "One query with whatever ground truth exists for it. Every annotation is optional."
+      },
+      "BenchmarkDataset": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version",
+            "description": "+1 whenever the content of a dataset name changes"
+          },
+          "source": {
+            "$ref": "#/components/schemas/DatasetSource"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "annotation_notes": {
+            "type": "string",
+            "title": "Annotation Notes"
+          },
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "corpus_version": {
+            "type": "integer",
+            "title": "Corpus Version"
+          },
+          "chunking_hash": {
+            "type": "string",
+            "title": "Chunking Hash"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkCase-Output"
+            },
+            "type": "array",
+            "title": "Cases"
+          },
+          "annotation_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Annotation"
+            },
+            "type": "object",
+            "title": "Annotation Counts"
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash",
+            "description": "Hash of corpus version and cases: equal content, equal hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "version",
+          "source",
+          "description",
+          "annotation_notes",
+          "corpus_id",
+          "corpus_version",
+          "chunking_hash",
+          "cases",
+          "annotation_counts",
+          "content_hash",
+          "created_at"
+        ],
+        "title": "BenchmarkDataset",
+        "description": "An immutable dataset version, pinned to one corpus version."
+      },
+      "BenchmarkDatasetCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,47}$",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "corpus_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corpus Version",
+            "description": "Default: current"
+          },
+          "annotation_notes": {
+            "type": "string",
+            "title": "Annotation Notes",
+            "description": "How the ground truth was established",
+            "default": ""
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkCase-Input"
+            },
+            "type": "array",
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "Cases"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "corpus_id",
+          "cases"
+        ],
+        "title": "BenchmarkDatasetCreate"
       },
       "Bm25Params-Input": {
         "properties": {
@@ -1157,6 +2774,71 @@
           "files"
         ],
         "title": "Body_ingest_documents_api_v1_corpora__corpus_id__documents_post"
+      },
+      "CaseDifference": {
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "baseline": {
+            "type": "number",
+            "title": "Baseline"
+          },
+          "variant": {
+            "type": "number",
+            "title": "Variant"
+          },
+          "difference": {
+            "type": "number",
+            "title": "Difference",
+            "description": "variant - baseline"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "case_id",
+          "baseline",
+          "variant",
+          "difference"
+        ],
+        "title": "CaseDifference"
+      },
+      "CaseStatus": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "failed"
+        ],
+        "title": "CaseStatus"
+      },
+      "CaseView": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "case": {
+            "$ref": "#/components/schemas/BenchmarkCase-Output"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/RunCase"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_id",
+          "case",
+          "results"
+        ],
+        "title": "CaseView",
+        "description": "One benchmark case across every arm of a run."
       },
       "ChatMessage": {
         "properties": {
@@ -1538,6 +3220,79 @@
         ],
         "title": "ClaimKind"
       },
+      "Comparison": {
+        "properties": {
+          "baseline": {
+            "$ref": "#/components/schemas/ArmRef"
+          },
+          "variant": {
+            "$ref": "#/components/schemas/ArmRef"
+          },
+          "comparable": {
+            "type": "boolean",
+            "title": "Comparable",
+            "description": "False: no paired statistics are computed"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Issues",
+            "description": "Why the arms cannot be compared"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigChange"
+            },
+            "type": "array",
+            "title": "Changes"
+          },
+          "factor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Factor",
+            "description": "The declared ablation factor, if this pair is one"
+          },
+          "method": {
+            "$ref": "#/components/schemas/StatsMethod"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/PairedComparison"
+            },
+            "type": "array",
+            "title": "Metrics"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseline",
+          "variant",
+          "comparable",
+          "issues",
+          "warnings",
+          "changes",
+          "factor",
+          "method",
+          "metrics"
+        ],
+        "title": "Comparison"
+      },
       "Complexity": {
         "type": "string",
         "enum": [
@@ -1636,6 +3391,250 @@
           "error"
         ],
         "title": "ComponentState"
+      },
+      "ConfigChange": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "description": "Dotted path in the configuration snapshot"
+          },
+          "baseline": {
+            "title": "Baseline"
+          },
+          "variant": {
+            "title": "Variant"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "path",
+          "baseline",
+          "variant"
+        ],
+        "title": "ConfigChange"
+      },
+      "ConfigurationSnapshot": {
+        "properties": {
+          "arm": {
+            "type": "string",
+            "title": "Arm"
+          },
+          "pipeline": {
+            "$ref": "#/components/schemas/PipelineKind"
+          },
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "dataset_name": {
+            "type": "string",
+            "title": "Dataset Name"
+          },
+          "dataset_version": {
+            "type": "integer",
+            "title": "Dataset Version"
+          },
+          "dataset_hash": {
+            "type": "string",
+            "title": "Dataset Hash"
+          },
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "corpus_version": {
+            "type": "integer",
+            "title": "Corpus Version"
+          },
+          "chunking_hash": {
+            "type": "string",
+            "title": "Chunking Hash"
+          },
+          "retrieval_mode": {
+            "$ref": "#/components/schemas/RetrievalMode"
+          },
+          "retrieval_template": {
+            "$ref": "#/components/schemas/RetrievalTemplate-Output"
+          },
+          "retrieval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetrievalConfiguration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Manual arms: the resolved retrieval configuration. Adaptive arms choose per case; each RunCase records the configuration actually used"
+          },
+          "query_analyzer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query Analyzer",
+            "description": "name@version, adaptive arms only"
+          },
+          "router_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Router Policy",
+            "description": "name@version, adaptive arms only"
+          },
+          "routing_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Hash"
+          },
+          "embedder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EmbedderSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reranker": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RerankerSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceParams-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prompt_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Template"
+          },
+          "generator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeneratorIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationParams-Output"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Effective parameters"
+          },
+          "verifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier"
+          },
+          "verifier_config_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Config Hash"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricSettings-Output"
+          },
+          "metric_versions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Metric Versions"
+          },
+          "engine_version": {
+            "type": "string",
+            "title": "Engine Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "arm",
+          "pipeline",
+          "dataset_id",
+          "dataset_name",
+          "dataset_version",
+          "dataset_hash",
+          "corpus_id",
+          "corpus_version",
+          "chunking_hash",
+          "retrieval_mode",
+          "retrieval_template",
+          "retrieval",
+          "query_analyzer",
+          "router_policy",
+          "routing_hash",
+          "embedder",
+          "reranker",
+          "evidence",
+          "prompt_template",
+          "generator",
+          "generation",
+          "verifier",
+          "verifier_config_hash",
+          "metrics",
+          "metric_versions",
+          "engine_version"
+        ],
+        "title": "ConfigurationSnapshot",
+        "description": "Everything that determines an arm's results, resolved at experiment creation."
       },
       "ContentOrigin": {
         "type": "string",
@@ -1951,6 +3950,85 @@
         ],
         "title": "CorpusVersion",
         "description": "An immutable snapshot: which document versions the corpus contained."
+      },
+      "DatasetSource": {
+        "type": "string",
+        "enum": [
+          "development",
+          "user",
+          "external"
+        ],
+        "title": "DatasetSource"
+      },
+      "DatasetSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "source": {
+            "$ref": "#/components/schemas/DatasetSource"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "corpus_version": {
+            "type": "integer",
+            "title": "Corpus Version"
+          },
+          "case_count": {
+            "type": "integer",
+            "title": "Case Count"
+          },
+          "annotation_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Annotation"
+            },
+            "type": "object",
+            "title": "Annotation Counts"
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "version",
+          "source",
+          "description",
+          "corpus_id",
+          "corpus_version",
+          "case_count",
+          "annotation_counts",
+          "content_hash",
+          "created_at"
+        ],
+        "title": "DatasetSummary"
       },
       "DenseIndex": {
         "properties": {
@@ -2961,36 +5039,69 @@
           },
           "name": {
             "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
             "title": "Name"
           },
           "hypothesis": {
             "type": "string",
-            "title": "Hypothesis",
-            "default": ""
+            "title": "Hypothesis"
+          },
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "dataset_name": {
+            "type": "string",
+            "title": "Dataset Name"
+          },
+          "dataset_version": {
+            "type": "integer",
+            "title": "Dataset Version"
+          },
+          "dataset_source": {
+            "$ref": "#/components/schemas/DatasetSource"
           },
           "corpus_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Corpus Id"
           },
-          "configuration_ids": {
+          "corpus_version": {
+            "type": "integer",
+            "title": "Corpus Version"
+          },
+          "arms": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/Arm-Output"
             },
             "type": "array",
-            "title": "Configuration Ids"
+            "title": "Arms"
           },
-          "status": {
-            "$ref": "#/components/schemas/ExperimentStatus",
-            "default": "draft"
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationSnapshot"
+            },
+            "type": "array",
+            "title": "Snapshots"
+          },
+          "snapshot_hashes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Snapshot Hashes",
+            "description": "Arm -> configuration hash"
+          },
+          "ablations": {
+            "items": {
+              "$ref": "#/components/schemas/Ablation"
+            },
+            "type": "array",
+            "title": "Ablations"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricSettings-Output"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/RunLimits-Output"
           },
           "created_at": {
             "type": "string",
@@ -3004,9 +5115,18 @@
           "id",
           "name",
           "hypothesis",
+          "dataset_id",
+          "dataset_name",
+          "dataset_version",
+          "dataset_source",
           "corpus_id",
-          "configuration_ids",
-          "status",
+          "corpus_version",
+          "arms",
+          "snapshots",
+          "snapshot_hashes",
+          "ablations",
+          "metrics",
+          "limits",
           "created_at"
         ],
         "title": "Experiment"
@@ -3024,21 +5144,39 @@
             "title": "Hypothesis",
             "default": ""
           },
-          "corpus_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Corpus Id"
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "arms": {
+            "items": {
+              "$ref": "#/components/schemas/Arm-Input"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Arms"
+          },
+          "ablations": {
+            "items": {
+              "$ref": "#/components/schemas/AblationSpec-Input"
+            },
+            "type": "array",
+            "title": "Ablations"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricSettings-Input"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/RunLimits-Input"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "name"
+          "name",
+          "dataset_id",
+          "arms"
         ],
         "title": "ExperimentCreate"
       },
@@ -3052,17 +5190,102 @@
             "type": "string",
             "title": "Experiment Id"
           },
-          "configuration_id": {
-            "type": "string",
-            "title": "Configuration Id"
-          },
-          "config_hash": {
-            "type": "string",
-            "title": "Config Hash"
-          },
           "status": {
-            "$ref": "#/components/schemas/ExperimentStatus",
+            "$ref": "#/components/schemas/RunStatus",
             "default": "queued"
+          },
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "dataset_version": {
+            "type": "integer",
+            "title": "Dataset Version"
+          },
+          "dataset_hash": {
+            "type": "string",
+            "title": "Dataset Hash"
+          },
+          "corpus_id": {
+            "type": "string",
+            "title": "Corpus Id"
+          },
+          "corpus_version": {
+            "type": "integer",
+            "title": "Corpus Version"
+          },
+          "case_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Case Ids"
+          },
+          "arms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Arms"
+          },
+          "snapshot_hashes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Snapshot Hashes"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/RunLimits-Output"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "cases x arms"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed",
+            "default": 0
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed",
+            "default": 0
+          },
+          "metric_registry_version": {
+            "type": "string",
+            "title": "Metric Registry Version"
+          },
+          "stats_method": {
+            "type": "string",
+            "title": "Stats Method"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/EnvironmentSnapshot"
+          },
+          "summaries": {
+            "items": {
+              "$ref": "#/components/schemas/ArmSummary"
+            },
+            "type": "array",
+            "title": "Summaries"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
           },
           "started_at": {
             "anyOf": [
@@ -3087,17 +5310,6 @@
               }
             ],
             "title": "Finished At"
-          },
-          "provenance_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provenance Id"
           }
         },
         "additionalProperties": false,
@@ -3105,25 +5317,29 @@
         "required": [
           "id",
           "experiment_id",
-          "configuration_id",
-          "config_hash",
           "status",
+          "dataset_id",
+          "dataset_version",
+          "dataset_hash",
+          "corpus_id",
+          "corpus_version",
+          "case_ids",
+          "arms",
+          "snapshot_hashes",
+          "limits",
+          "total",
+          "completed",
+          "failed",
+          "metric_registry_version",
+          "stats_method",
+          "environment",
+          "summaries",
+          "error",
+          "created_at",
           "started_at",
-          "finished_at",
-          "provenance_id"
+          "finished_at"
         ],
         "title": "ExperimentRun"
-      },
-      "ExperimentStatus": {
-        "type": "string",
-        "enum": [
-          "draft",
-          "queued",
-          "running",
-          "completed",
-          "failed"
-        ],
-        "title": "ExperimentStatus"
       },
       "ExtractionStatus": {
         "type": "string",
@@ -3531,6 +5747,47 @@
         "title": "GeneratorDescriptor",
         "description": "A registered generator, described without loading it."
       },
+      "GeneratorIdentity": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "provider",
+          "model",
+          "revision",
+          "config_hash"
+        ],
+        "title": "GeneratorIdentity"
+      },
       "GeneratorInfo": {
         "properties": {
           "name": {
@@ -3638,7 +5895,7 @@
         "title": "GeneratorInfo",
         "description": "The spec plus facts read from the loaded model (or the remote endpoint's identity)."
       },
-      "GroundingParams": {
+      "GroundingParams-Input": {
         "properties": {
           "verifier": {
             "type": "string",
@@ -3649,6 +5906,22 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "title": "GroundingParams"
+      },
+      "GroundingParams-Output": {
+        "properties": {
+          "verifier": {
+            "type": "string",
+            "title": "Verifier",
+            "description": "A registered verifier",
+            "default": "lexical-semantic"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "verifier"
+        ],
         "title": "GroundingParams"
       },
       "GroundingReport": {
@@ -3813,6 +6086,92 @@
           "origin"
         ],
         "title": "GroundingReport"
+      },
+      "GroundingSnapshot": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/AnswerGrounding"
+          },
+          "claims": {
+            "type": "integer",
+            "title": "Claims"
+          },
+          "factual_claims": {
+            "type": "integer",
+            "title": "Factual Claims"
+          },
+          "supported": {
+            "type": "integer",
+            "title": "Supported"
+          },
+          "weakly_supported": {
+            "type": "integer",
+            "title": "Weakly Supported"
+          },
+          "unsupported": {
+            "type": "integer",
+            "title": "Unsupported"
+          },
+          "grounding_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grounding Score"
+          },
+          "citation_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Coverage"
+          },
+          "citation_precision": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Precision"
+          },
+          "evidence_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Coverage"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "claims",
+          "factual_claims",
+          "supported",
+          "weakly_supported",
+          "unsupported",
+          "grounding_score",
+          "citation_coverage",
+          "citation_precision",
+          "evidence_coverage"
+        ],
+        "title": "GroundingSnapshot"
       },
       "HTTPValidationError": {
         "properties": {
@@ -4185,6 +6544,136 @@
         ],
         "title": "IngestionStatus"
       },
+      "Leaderboard": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "higher_is_better": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Higher Is Better"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_id",
+          "metric",
+          "higher_is_better",
+          "rows",
+          "note"
+        ],
+        "title": "Leaderboard"
+      },
+      "LeaderboardRow": {
+        "properties": {
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position",
+            "description": "null when the metric is undefined for the arm"
+          },
+          "arm": {
+            "type": "string",
+            "title": "Arm"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "pipeline": {
+            "$ref": "#/components/schemas/PipelineKind"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ci_overlaps_leader": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ci Overlaps Leader"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "cases": {
+            "type": "integer",
+            "title": "Cases"
+          },
+          "mean_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Latency Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "position",
+          "arm",
+          "label",
+          "pipeline",
+          "config_hash",
+          "summary",
+          "ci_overlaps_leader",
+          "failed",
+          "cases",
+          "mean_latency_ms"
+        ],
+        "title": "LeaderboardRow"
+      },
       "Metric": {
         "properties": {
           "name": {
@@ -4221,6 +6710,370 @@
         ],
         "title": "Metric"
       },
+      "MetricDefinition": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Base name; k-parameterised metrics report name@k"
+          },
+          "family": {
+            "$ref": "#/components/schemas/MetricFamily"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "requires": {
+            "items": {
+              "$ref": "#/components/schemas/Annotation"
+            },
+            "type": "array",
+            "title": "Requires",
+            "description": "Annotations without which it is skipped"
+          },
+          "requires_output": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Requires Output",
+            "description": "Pipeline outputs it needs, e.g. reranking, generation"
+          },
+          "per_k": {
+            "type": "boolean",
+            "title": "Per K"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "aggregation": {
+            "type": "string",
+            "title": "Aggregation",
+            "default": "mean over the cases where it is defined"
+          },
+          "higher_is_better": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Higher Is Better",
+            "description": "null for descriptive metrics"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "family",
+          "version",
+          "description",
+          "requires",
+          "requires_output",
+          "per_k",
+          "unit",
+          "aggregation",
+          "higher_is_better"
+        ],
+        "title": "MetricDefinition"
+      },
+      "MetricFamily": {
+        "type": "string",
+        "enum": [
+          "retrieval",
+          "reranking",
+          "evidence",
+          "generation",
+          "operational"
+        ],
+        "title": "MetricFamily"
+      },
+      "MetricSettings-Input": {
+        "properties": {
+          "ks": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Ks"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metrics",
+            "description": "Base metric names to compute; null = every registered metric"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MetricSettings"
+      },
+      "MetricSettings-Output": {
+        "properties": {
+          "ks": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Ks"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metrics",
+            "description": "Base metric names to compute; null = every registered metric"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ks",
+          "metrics"
+        ],
+        "title": "MetricSettings"
+      },
+      "MetricSummary": {
+        "properties": {
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "family": {
+            "$ref": "#/components/schemas/MetricFamily"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "higher_is_better": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Higher Is Better"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N",
+            "description": "Cases where the metric is defined"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped",
+            "description": "Cases where it was skipped (annotations or output absent)"
+          },
+          "mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "std": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Std"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "ci_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ci Low"
+          },
+          "ci_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ci High"
+          },
+          "ci_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ci Method"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metric",
+          "family",
+          "version",
+          "higher_is_better",
+          "n",
+          "skipped",
+          "mean",
+          "median",
+          "std",
+          "min",
+          "max",
+          "ci_low",
+          "ci_high",
+          "ci_method"
+        ],
+        "title": "MetricSummary"
+      },
+      "MetricValue": {
+        "properties": {
+          "metric": {
+            "type": "string",
+            "title": "Metric",
+            "description": "e.g. recall@5"
+          },
+          "family": {
+            "$ref": "#/components/schemas/MetricFamily"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "null when skipped"
+          },
+          "skipped": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped",
+            "description": "Why it could not be computed"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail",
+            "description": "e.g. relevance unit: document"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/ContentOrigin",
+            "default": "measured"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metric",
+          "family",
+          "version",
+          "value",
+          "skipped",
+          "detail",
+          "origin"
+        ],
+        "title": "MetricValue"
+      },
       "NotImplementedDetail": {
         "properties": {
           "capability": {
@@ -4238,6 +7091,237 @@
           "message"
         ],
         "title": "NotImplementedDetail"
+      },
+      "PairDiff": {
+        "properties": {
+          "baseline": {
+            "type": "string",
+            "title": "Baseline"
+          },
+          "variant": {
+            "type": "string",
+            "title": "Variant"
+          },
+          "factors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Factors"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigChange"
+            },
+            "type": "array",
+            "title": "Changes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "baseline",
+          "variant",
+          "factors",
+          "changes"
+        ],
+        "title": "PairDiff"
+      },
+      "PairedComparison": {
+        "properties": {
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "family": {
+            "$ref": "#/components/schemas/MetricFamily"
+          },
+          "higher_is_better": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Higher Is Better"
+          },
+          "n_pairs": {
+            "type": "integer",
+            "title": "N Pairs",
+            "description": "Cases where both arms define the metric"
+          },
+          "baseline_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Mean"
+          },
+          "variant_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant Mean"
+          },
+          "mean_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Difference"
+          },
+          "median_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Difference"
+          },
+          "std_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Std Difference"
+          },
+          "ci_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ci Low"
+          },
+          "ci_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ci High"
+          },
+          "effect_size_dz": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effect Size Dz",
+            "description": "mean / sd of paired differences"
+          },
+          "wins": {
+            "type": "integer",
+            "title": "Wins",
+            "description": "Cases where the variant is better"
+          },
+          "losses": {
+            "type": "integer",
+            "title": "Losses"
+          },
+          "ties": {
+            "type": "integer",
+            "title": "Ties"
+          },
+          "sign_test_p": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sign Test P",
+            "description": "Exact two-sided sign test, ties dropped"
+          },
+          "holm_p": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holm P",
+            "description": "Holm-adjusted across the metrics compared"
+          },
+          "conclusion": {
+            "type": "string",
+            "title": "Conclusion",
+            "description": "insufficient_cases | no_detectable_difference | variant_higher | variant_lower | descriptive_only"
+          },
+          "differences": {
+            "items": {
+              "$ref": "#/components/schemas/CaseDifference"
+            },
+            "type": "array",
+            "title": "Differences"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metric",
+          "family",
+          "higher_is_better",
+          "n_pairs",
+          "baseline_mean",
+          "variant_mean",
+          "mean_difference",
+          "median_difference",
+          "std_difference",
+          "ci_low",
+          "ci_high",
+          "effect_size_dz",
+          "wins",
+          "losses",
+          "ties",
+          "sign_test_p",
+          "holm_p",
+          "conclusion",
+          "differences"
+        ],
+        "title": "PairedComparison"
+      },
+      "PipelineKind": {
+        "type": "string",
+        "enum": [
+          "retrieval",
+          "rag"
+        ],
+        "title": "PipelineKind"
       },
       "PipelineStage": {
         "properties": {
@@ -4848,7 +7932,7 @@
             "description": "null = stop after evidence selection and context assembly"
           },
           "grounding": {
-            "$ref": "#/components/schemas/GroundingParams"
+            "$ref": "#/components/schemas/GroundingParams-Input"
           }
         },
         "additionalProperties": false,
@@ -4945,6 +8029,66 @@
           "unchanged"
         ],
         "title": "RankMovement"
+      },
+      "RankedItem": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "chunk_id": {
+            "type": "string",
+            "title": "Chunk Id"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "upstream_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream Rank",
+            "description": "Rank before reranking, if reranked"
+          },
+          "relevance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relevance",
+            "description": "The case's grade for it; null if not judged"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rank",
+          "chunk_id",
+          "document_id",
+          "filename",
+          "score",
+          "upstream_rank",
+          "relevance"
+        ],
+        "title": "RankedItem"
       },
       "RerankCandidate": {
         "properties": {
@@ -5290,6 +8434,79 @@
         ],
         "title": "RerankerSpec",
         "description": "What determines a reranker's scores. Its hash is part of every reranked configuration."
+      },
+      "ResolveRequest": {
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "arms": {
+            "items": {
+              "$ref": "#/components/schemas/Arm-Input"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Arms"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricSettings-Input"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dataset_id",
+          "arms"
+        ],
+        "title": "ResolveRequest"
+      },
+      "ResolveResponse": {
+        "properties": {
+          "arms": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedArm"
+            },
+            "type": "array",
+            "title": "Arms"
+          },
+          "diffs": {
+            "items": {
+              "$ref": "#/components/schemas/PairDiff"
+            },
+            "type": "array",
+            "title": "Diffs",
+            "description": "Each arm against the first"
+          },
+          "dense_index_ready": {
+            "type": "boolean",
+            "title": "Dense Index Ready"
+          }
+        },
+        "type": "object",
+        "required": [
+          "arms",
+          "diffs",
+          "dense_index_ready"
+        ],
+        "title": "ResolveResponse"
+      },
+      "ResolvedArm": {
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/ConfigurationSnapshot"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash"
+          }
+        },
+        "type": "object",
+        "required": [
+          "snapshot",
+          "config_hash"
+        ],
+        "title": "ResolvedArm"
       },
       "RetrievalConfiguration": {
         "properties": {
@@ -5865,6 +9082,85 @@
         ],
         "title": "RetrievalStrategy"
       },
+      "RetrievalTemplate-Input": {
+        "properties": {
+          "top_k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "default": 10
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/RetrievalStrategy",
+            "default": "sparse"
+          },
+          "bm25": {
+            "$ref": "#/components/schemas/Bm25Params-Input"
+          },
+          "hybrid": {
+            "$ref": "#/components/schemas/HybridParams-Input"
+          },
+          "rerank": {
+            "$ref": "#/components/schemas/RerankParams-Input"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/RetrievalMode",
+            "default": "manual"
+          },
+          "router": {
+            "$ref": "#/components/schemas/RouterParams-Input"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RetrievalTemplate",
+        "description": "A RetrievalRequest without the query and corpus version, which each case supplies."
+      },
+      "RetrievalTemplate-Output": {
+        "properties": {
+          "top_k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "default": 10
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/RetrievalStrategy",
+            "default": "sparse"
+          },
+          "bm25": {
+            "$ref": "#/components/schemas/Bm25Params-Output"
+          },
+          "hybrid": {
+            "$ref": "#/components/schemas/HybridParams-Output"
+          },
+          "rerank": {
+            "$ref": "#/components/schemas/RerankParams-Output"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/RetrievalMode",
+            "default": "manual"
+          },
+          "router": {
+            "$ref": "#/components/schemas/RouterParams-Output"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "top_k",
+          "strategy",
+          "bm25",
+          "hybrid",
+          "rerank",
+          "mode",
+          "router"
+        ],
+        "title": "RetrievalTemplate",
+        "description": "A RetrievalRequest without the query and corpus version, which each case supplies."
+      },
       "RouteAlternative": {
         "properties": {
           "option": {
@@ -6313,6 +9609,361 @@
         "title": "RuleEvaluation",
         "description": "One policy rule as evaluated for this query: what it read and whether it fired."
       },
+      "RunCase": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "experiment_id": {
+            "type": "string",
+            "title": "Experiment Id"
+          },
+          "arm": {
+            "type": "string",
+            "title": "Arm"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash",
+            "description": "The arm's configuration snapshot hash"
+          },
+          "retrieval_configuration_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieval Configuration Hash",
+            "description": "The retrieval configuration that actually ran (adaptive arms vary)"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CaseStatus"
+          },
+          "error_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Type"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route",
+            "description": "Adaptive arms: the option the router chose"
+          },
+          "ranking": {
+            "items": {
+              "$ref": "#/components/schemas/RankedItem"
+            },
+            "type": "array",
+            "title": "Ranking"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence",
+            "description": "Selected evidence filenames"
+          },
+          "answer_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnswerStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "grounding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GroundingSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricValue"
+            },
+            "type": "array",
+            "title": "Metrics"
+          },
+          "timings_ms": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Timings Ms"
+          },
+          "tokens": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Tokens"
+          },
+          "models": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Models",
+            "description": "Component -> model@revision"
+          },
+          "artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Id",
+            "description": "Full pipeline trace"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Finished At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_id",
+          "experiment_id",
+          "arm",
+          "case_id",
+          "config_hash",
+          "retrieval_configuration_hash",
+          "status",
+          "error_type",
+          "error",
+          "route",
+          "ranking",
+          "evidence",
+          "answer_status",
+          "answer",
+          "grounding",
+          "metrics",
+          "timings_ms",
+          "tokens",
+          "models",
+          "artifact_id",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "RunCase",
+        "description": "One case evaluated under one arm: what ran, what came out, and its metrics."
+      },
+      "RunDigest": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "experiment_id": {
+            "type": "string",
+            "title": "Experiment Id"
+          },
+          "experiment_name": {
+            "type": "string",
+            "title": "Experiment Name"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "dataset_name": {
+            "type": "string",
+            "title": "Dataset Name"
+          },
+          "dataset_version": {
+            "type": "integer",
+            "title": "Dataset Version"
+          },
+          "dataset_source": {
+            "$ref": "#/components/schemas/DatasetSource"
+          },
+          "arms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Arms"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "experiment_id",
+          "experiment_name",
+          "status",
+          "dataset_name",
+          "dataset_version",
+          "dataset_source",
+          "arms",
+          "total",
+          "completed",
+          "failed",
+          "created_at",
+          "finished_at"
+        ],
+        "title": "RunDigest"
+      },
+      "RunLimits-Input": {
+        "properties": {
+          "max_cases": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Cases",
+            "description": "First N cases"
+          },
+          "concurrency": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Concurrency",
+            "description": "Cases evaluated in parallel",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RunLimits"
+      },
+      "RunLimits-Output": {
+        "properties": {
+          "max_cases": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Cases",
+            "description": "First N cases"
+          },
+          "concurrency": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Concurrency",
+            "description": "Cases evaluated in parallel",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "max_cases",
+          "concurrency"
+        ],
+        "title": "RunLimits"
+      },
+      "RunStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "partial",
+          "failed"
+        ],
+        "title": "RunStatus"
+      },
       "SelectionDecision": {
         "properties": {
           "chunk_id": {
@@ -6451,6 +10102,50 @@
           "contribution"
         ],
         "title": "SignalContribution"
+      },
+      "StatsMethod": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "bootstrap_resamples": {
+            "type": "integer",
+            "title": "Bootstrap Resamples"
+          },
+          "seed": {
+            "type": "integer",
+            "title": "Seed"
+          },
+          "min_cases_for_conclusion": {
+            "type": "integer",
+            "title": "Min Cases For Conclusion"
+          },
+          "multiple_comparisons": {
+            "type": "string",
+            "title": "Multiple Comparisons"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "version",
+          "confidence",
+          "bootstrap_resamples",
+          "seed",
+          "min_cases_for_conclusion",
+          "multiple_comparisons"
+        ],
+        "title": "StatsMethod"
       },
       "SupportStatus": {
         "type": "string",

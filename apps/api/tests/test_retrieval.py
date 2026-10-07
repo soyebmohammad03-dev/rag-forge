@@ -24,7 +24,7 @@ from rag_forge.retrieval.service import (
 )
 from rag_forge.storage.blobs import BlobStore
 from rag_forge.storage.lexical_index import SqliteLexicalIndex
-from rag_forge.storage.sqlite import SqliteStore
+from rag_forge.storage.sqlite import SCHEMA_VERSION, SqliteStore
 
 DOCS = {
     "sparse.txt": b"BM25 is a sparse lexical retrieval function. It rewards exact term matching "
@@ -226,13 +226,15 @@ def test_v1_database_migrates_and_backfills_index(tmp_path: Path) -> None:
     db.executescript(
         "DROP TABLE dense_vectors; DROP TABLE dense_indexes;"
         "DROP TABLE lexical_postings; DROP TABLE lexical_docs; DROP TABLE lexical_terms;"
+        "DROP TABLE arena_artifacts; DROP TABLE arena_run_cases; DROP TABLE arena_runs;"
+        "DROP TABLE arena_experiments; DROP TABLE benchmark_datasets;"
         "PRAGMA user_version=1;"
     )
     db.close()
 
     reopened = SqliteStore(path)
     with reopened.transaction() as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 4
     r = ask(make_service(reopened), c.id, "legacy")
     assert files(r) == ["a.txt"]
     assert r.provenance.statistics["indexed_now"] == 1

@@ -20,6 +20,7 @@ from rag_forge.domain.models import (
     RouteAlternative,
     RouteOption,
     RouterDecision,
+    RouterParams,
     RoutingConfiguration,
     RoutingProvenance,
     TermStatistic,
@@ -58,16 +59,19 @@ class AdaptiveRouter:
         self.availability = availability
         self.rerankers = rerankers
 
-    def route(
-        self,
-        corpus: Corpus,
-        version: int,
-        request: RetrievalRequest,
-        query_id: str,
-        configure: Callable[[RetrievalRequest], RetrievalConfiguration],
-    ) -> tuple[RetrievalRequest, RoutingProvenance]:
-        """The manual request the policy selects, and the full record of why."""
-        params = request.router
+    def identity(self, params: RouterParams) -> RoutingConfiguration:
+        """Which analyzer and policy, at which versions, a request would route with."""
+        analyzer, policy = self._components(params)
+        return RoutingConfiguration(
+            analyzer=analyzer.name,
+            analyzer_version=analyzer.version,
+            analyzer_config_hash=analyzer.config_hash(),
+            policy=policy.name,
+            policy_version=policy.version,
+            policy_config_hash=policy.config_hash(),
+        )
+
+    def _components(self, params: RouterParams) -> tuple[QueryAnalyzer, RouterPolicy]:
         analyzer = self.analyzers.get(params.analyzer)
         if analyzer is None:
             raise RouterComponentNotAvailableError(
@@ -78,6 +82,18 @@ class AdaptiveRouter:
             raise RouterComponentNotAvailableError(
                 "router policy", params.policy, list(self.policies)
             )
+        return analyzer, policy
+
+    def route(
+        self,
+        corpus: Corpus,
+        version: int,
+        request: RetrievalRequest,
+        query_id: str,
+        configure: Callable[[RetrievalRequest], RetrievalConfiguration],
+    ) -> tuple[RetrievalRequest, RoutingProvenance]:
+        """The manual request the policy selects, and the full record of why."""
+        analyzer, policy = self._components(request.router)
 
         started = time.perf_counter()
         bare = analyzer.analyze(request.query)  # terms first, then their corpus statistics
@@ -141,14 +157,7 @@ class AdaptiveRouter:
         decision = RouterDecision(**body, decision_hash=decision_hash)
         decision_ms = round((time.perf_counter() - started) * 1000, 3)
 
-        identity = RoutingConfiguration(
-            analyzer=analyzer.name,
-            analyzer_version=analyzer.version,
-            analyzer_config_hash=analyzer.config_hash(),
-            policy=policy.name,
-            policy_version=policy.version,
-            policy_config_hash=policy.config_hash(),
-        )
+        identity = self.identity(request.router)
         provenance = RoutingProvenance(
             routing=identity,
             routing_hash=identity.config_hash(),

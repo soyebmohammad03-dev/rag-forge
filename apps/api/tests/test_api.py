@@ -10,12 +10,12 @@ def test_health_reports_components_honestly(client: TestClient) -> None:
     assert states["llm_provider"] == "ok"  # configured; loaded lazily on the first answer
 
 
-def test_experiment_rejects_unknown_corpus(client: TestClient) -> None:
+def test_experiments_need_a_registered_dataset(client: TestClient) -> None:
     c = client
-    assert c.post("/api/v1/experiments", json={"name": "x", "corpus_id": "nope"}).status_code == 422
-    created = c.post("/api/v1/experiments", json={"name": "baseline"})
-    assert created.status_code == 201
-    assert created.json()["status"] == "draft"
+    assert c.get("/api/v1/experiments").json() == [] and c.get("/api/v1/runs").json() == []
+    body = {"name": "x", "dataset_id": "bds_nope", "arms": [{"name": "bm25"}]}
+    assert c.post("/api/v1/experiments", json=body).status_code == 404
+    assert c.post("/api/v1/experiments/exp_nope/runs").status_code == 404
 
 
 def test_unimplemented_capabilities_return_501_not_fake_data(client: TestClient) -> None:

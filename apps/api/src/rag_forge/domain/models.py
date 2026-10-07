@@ -1180,58 +1180,7 @@ class RagResponse(Model):
     warnings: list[str] = Field(default_factory=list)
 
 
-# --- Configuration & routing -------------------------------------------------
-
-
-class RAGConfiguration(Model):
-    """Everything that determines a run's behaviour. Its hash identifies it."""
-
-    id: str = Field(default_factory=lambda: new_id("cfg"))
-    name: str
-    chunking: dict[str, Any] = Field(default_factory=dict)
-    embedding_model: str | None = None
-    strategies: list[RetrievalStrategy] = Field(min_length=1)
-    top_k: int = Field(default=10, gt=0)
-    reranker: str | None = None
-    router_policy: str | None = None
-    generation_model: str | None = None
-    prompt_template: str | None = None
-
-    def config_hash(self) -> str:
-        """Stable hash of behaviour-relevant fields (excludes id and name)."""
-        return canonical_hash(self.model_dump(mode="json", exclude={"id", "name"}))
-
-
-# --- Experiments & evaluation ------------------------------------------------
-
-
-class ExperimentStatus(StrEnum):
-    DRAFT = "draft"
-    QUEUED = "queued"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class Experiment(Model):
-    id: str = Field(default_factory=lambda: new_id("exp"))
-    name: str = Field(min_length=1, max_length=200)
-    hypothesis: str = ""
-    corpus_id: str | None = None
-    configuration_ids: list[str] = Field(default_factory=list)
-    status: ExperimentStatus = ExperimentStatus.DRAFT
-    created_at: datetime = Field(default_factory=utcnow)
-
-
-class ExperimentRun(Model):
-    id: str = Field(default_factory=lambda: new_id("run"))
-    experiment_id: str
-    configuration_id: str
-    config_hash: str
-    status: ExperimentStatus = ExperimentStatus.QUEUED
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    provenance_id: str | None = None
+# --- Evaluation ----------------------------------------------------------------
 
 
 class Metric(Model):
@@ -1239,22 +1188,6 @@ class Metric(Model):
     value: float
     k: int | None = None
     origin: ContentOrigin = ContentOrigin.MEASURED
-
-
-class EvaluationResult(Model):
-    run_id: str
-    metrics: list[Metric]
-    evaluator: str
-    evaluated_at: datetime = Field(default_factory=utcnow)
-
-
-class Artifact(Model):
-    id: str = Field(default_factory=lambda: new_id("art"))
-    run_id: str
-    kind: str  # e.g. "retrieval_log", "answers", "index_manifest"
-    uri: str
-    media_type: str
-    sha256: str
 
 
 class EnvironmentSnapshot(Model):

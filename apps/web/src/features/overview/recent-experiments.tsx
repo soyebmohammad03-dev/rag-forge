@@ -1,9 +1,10 @@
 "use client";
 
-import type { Experiment } from "@rag-forge/shared";
+import type { RunDigest } from "@rag-forge/shared";
 import { FlaskConical } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Badge, OriginBadge } from "@/components/ui/badge";
+import { OriginBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { STRATEGY_COLOR } from "@/components/ui/chart";
 import { type Column, DataTable } from "@/components/ui/data-table";
@@ -12,7 +13,7 @@ import { Panel, PanelHeader } from "@/components/ui/panel";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { type Status, StatusIndicator } from "@/components/ui/status";
 import { Tabs } from "@/components/ui/tabs";
-import { fetchExperiments, useApi } from "@/lib/use-api";
+import { fetchRuns, useApi } from "@/lib/use-api";
 import { SAMPLE_ORIGIN, type SampleExperiment, type SampleRunStatus, sampleExperiments } from "@/sample/preview-data";
 
 const RUN_STATUS: Record<SampleRunStatus, Status> = {
@@ -40,11 +41,29 @@ const sampleColumns: Column<SampleExperiment>[] = [
   { key: "started", header: "Started", align: "right", cell: (e) => e.started, className: "hidden sm:table-cell" },
 ];
 
-const liveColumns: Column<Experiment>[] = [
-  { key: "name", header: "Experiment", cell: (e) => <span className="text-fg">{e.name}</span> },
-  { key: "id", header: "ID", cell: (e) => <span className="font-mono">{e.id}</span> },
-  { key: "status", header: "Status", cell: (e) => <Badge>{e.status}</Badge> },
-  { key: "created", header: "Created", align: "right", cell: (e) => new Date(e.created_at).toLocaleString() },
+const LIVE_STATUS: Record<RunDigest["status"], Status> = {
+  completed: "ok",
+  partial: "warn",
+  running: "loading",
+  queued: "idle",
+  failed: "err",
+};
+
+const liveColumns: Column<RunDigest>[] = [
+  {
+    key: "name",
+    header: "Experiment",
+    cell: (r) => (
+      <div className="min-w-0">
+        <div className="truncate text-[13px] text-fg">{r.experiment_name}</div>
+        <div className="font-mono text-[10px] text-fg-subtle">{r.run_id}</div>
+      </div>
+    ),
+  },
+  { key: "dataset", header: "Dataset", cell: (r) => <span className="font-mono">{r.dataset_name} v{r.dataset_version}</span>, className: "hidden md:table-cell" },
+  { key: "arms", header: "Arms", align: "right", cell: (r) => <span className="num">{r.arms.length}</span> },
+  { key: "status", header: "Status", cell: (r) => <StatusIndicator status={LIVE_STATUS[r.status]} label={`${r.status} · ${r.completed}/${r.total}${r.failed ? ` · ${r.failed} failed` : ""}`} /> },
+  { key: "created", header: "Started", align: "right", cell: (r) => new Date(r.created_at).toLocaleString(), className: "hidden sm:table-cell" },
 ];
 
 function Strategies({ keys }: { keys: string[] }) {
@@ -63,7 +82,8 @@ function Strategies({ keys }: { keys: string[] }) {
 export function RecentExperiments({ className }: { className?: string }) {
   const [tab, setTab] = useState("recorded");
   const [open, setOpen] = useState<SampleExperiment | null>(null);
-  const live = useApi(fetchExperiments);
+  const live = useApi(fetchRuns);
+  const router = useRouter();
   const count = live.data?.length;
 
   return (
@@ -84,19 +104,24 @@ export function RecentExperiments({ className }: { className?: string }) {
       />
       {tab === "recorded" ? (
         live.loading ? (
-          <LoadingState rows={3} label="Loading experiments" />
+          <LoadingState rows={3} label="Loading runs" />
         ) : live.error ? (
-          <ErrorState title="Could not load experiments">{live.error}</ErrorState>
+          <ErrorState title="Could not load runs">{live.error}</ErrorState>
         ) : count ? (
-          <DataTable caption="Recorded experiments" columns={liveColumns} rows={live.data!} rowKey={(e) => e.id} />
+          <DataTable
+            caption="Recorded experiment runs"
+            columns={liveColumns}
+            rows={live.data!.slice(0, 8)}
+            rowKey={(r) => r.run_id}
+            onRowClick={(r) => router.push(`/arena?run=${encodeURIComponent(r.run_id)}`)}
+          />
         ) : (
           <EmptyState
             icon={FlaskConical}
-            title="No experiments recorded yet"
+            title="No experiment runs recorded yet"
             action={<Button size="sm" onClick={() => setTab("preview")}>View sample preview</Button>}
           >
-            Experiments appear here once they are created through the API. Results are only ever shown from recorded
-            runs.
+            Runs appear here once an experiment is run in the Arena. Results are only ever shown from recorded runs.
           </EmptyState>
         )
       ) : (

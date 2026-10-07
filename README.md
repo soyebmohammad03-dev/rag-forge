@@ -36,7 +36,7 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 
 ## Status
 
-**Phase 7, evidence, grounding and generation.** What exists and works today:
+**Phase 8, Arena and experiment engine.** What exists and works today:
 
 | Area | State |
 |---|---|
@@ -51,7 +51,7 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 | BM25 lexical retrieval with version-scoped statistics, `POST /api/v1/corpora/{id}/retrieve` | Implemented, deterministic, reproducible per corpus version |
 | Dense retrieval: `BAAI/bge-small-en-v1.5` (pinned, local ONNX), SQLite vector store, exact cosine search | Implemented; explicit index builds with ready/building/missing/stale/failed states |
 | Hybrid retrieval: RRF (primary) and weighted min-max fusion, per-component ranks/scores/contributions | Implemented; fixed strategy, no silent fallback |
-| `RetrievalConfiguration` + hash in every response | Implemented (the unit the Arena will vary) |
+| `RetrievalConfiguration` + hash in every response | Implemented (the retrieval part of an Arena arm's snapshot) |
 | Cross-encoder reranking after any strategy: `cross-encoder/ms-marco-MiniLM-L-6-v2` (pinned, local ONNX, CPU), configurable candidate pool and final top-k, per-candidate rank movement | Implemented; no unreranked fallback, full reranking provenance |
 | Query intelligence: deterministic heuristic analyzer (features, lexical/semantic/complexity signals with contributions, labels, corpus term coverage) | Implemented; a baseline, not a trained model |
 | Adaptive router: rule policy choosing BM25, dense, hybrid RRF or weighted and reranking, with rule traces, margins, alternatives and availability constraints; `mode: "adaptive"`, `POST /api/v1/router/decide` | Implemented; full routing provenance, no superiority claims |
@@ -61,8 +61,13 @@ and reproducible. RAG FORGE provides all three, plus an interface that shows how
 | Claims and grounding: sentence claims, parsed citations (invalid ones kept), lexical-semantic verifier with recorded thresholds, supported / weak / unsupported, grounding score, evidence and citation coverage, citation precision | Implemented; measured support only, never `contradicted`, not a quality score |
 | Evidence Lab UI: answer with measured-support underlines and model citations, grounding metrics, claim → evidence table, selection decisions, context budget, provenance chain, query intelligence and router | Implemented against the real API |
 | Retrieval metrics: Recall@K, Precision@K, MRR, nDCG@K | Implemented, `POST /api/v1/evaluation/retrieval` |
-| Arena and experiments, replay | Not built; unregistered components return `501` |
-| Other product areas (Forge, Arena, Experiments, …) | Scoped, not built |
+| Benchmark datasets: versioned, pinned to a corpus version, optional annotations (relevance, reference answer, answerability, expected evidence) validated against the corpus; bundled development benchmark (12 documents, 14 cases) | Implemented; the development set validates the pipeline, it does not rank methods |
+| Metric registry `arena-metrics@1`: retrieval, reranking, evidence/grounding, automatic generation proxies, operational; each declares its requirements, k, unit, aggregation, direction | Implemented; missing ground truth is skipped with a reason, never 0 |
+| Experiment engine: arms → immutable hashed configuration snapshots, ablations with measured factors, background runs with case limits and concurrency, per-case results with trace artifacts, partial failures kept | Implemented on the unchanged retrieval and RAG services |
+| Statistics `paired-bootstrap-sign@1`: bootstrap CIs, paired differences, effect size, sign test + Holm, no conclusion below 10 pairs, incomparable runs refused | Implemented |
+| Arena UI (`/arena`, `/experiments`, `/results`): datasets, experiment builder, run monitor, leaderboard, statistical comparison, case explorer, failures, latency, configurations | Implemented against the real API |
+| Replay, report export, final presentation | Phase 9; not built |
+| Other product areas (Forge, Knowledge) | Scoped, not built |
 
 Numbers on the Overview marked **SAMPLE** (hatched badge) are preview data from
 `apps/web/src/sample/`. They were not measured. Everything marked **LIVE** comes from the API.
@@ -91,10 +96,11 @@ rag-forge/
 │   │   │   ├── retrieval/    retriever contract, BM25, embeddings, dense, fusion, hybrid, rerank, service
 │   │   │   ├── router/       query analyzer, router policy, adaptive router
 │   │   │   ├── rag/          evidence selection, context, prompt, generators, claims, grounding, service
+│   │   │   ├── arena/        benchmark datasets, metric registry, statistics, snapshots, presets, experiment engine
 │   │   │   ├── evaluation/   retrieval metrics
 │   │   │   ├── provenance/   environment capture
-│   │   │   ├── storage/      store contract, SQLite + migrations, lexical index, vector index, blobs
-│   │   │   ├── api/          HTTP schemas + routes (system, router, rag, corpus)
+│   │   │   ├── storage/      store contract, SQLite + migrations, lexical index, vector index, blobs, arena store
+│   │   │   ├── api/          HTTP schemas + routes (system, router, rag, corpus, arena)
 │   │   │   ├── onnx_runtime.py  single onnxruntime import (telemetry off)
 │   │   │   └── main.py       app factory
 │   │   └── tests/
@@ -102,7 +108,7 @@ rag-forge/
 │       └── src/
 │           ├── app/          routes only; thin
 │           ├── components/   ui/ (design system) · shell/ (sidebar, command palette)
-│           ├── features/     overview/ · corpus/ · retrieval/ · evidence/ · system/ · planned/
+│           ├── features/     overview/ · corpus/ · retrieval/ · evidence/ · arena/ · system/ · planned/
 │           ├── lib/          typed API client, area registry
 │           └── sample/       preview data, isolated
 ├── packages/shared/          API contracts generated from OpenAPI
@@ -116,8 +122,9 @@ See [docs/architecture.md](docs/architecture.md) for layering,
 [docs/ingestion.md](docs/ingestion.md) for ingestion and versioning,
 [docs/retrieval.md](docs/retrieval.md) for the retrieval contract, BM25, dense and hybrid retrieval and reranking,
 [docs/router.md](docs/router.md) for query intelligence and adaptive routing,
-[docs/rag.md](docs/rag.md) for evidence, generation, claims and grounding, and
-[docs/research/methodology.md](docs/research/methodology.md) for how comparisons will be run.
+[docs/rag.md](docs/rag.md) for evidence, generation, claims and grounding,
+[docs/arena.md](docs/arena.md) for datasets, metrics, experiments and statistics, and
+[docs/research/methodology.md](docs/research/methodology.md) for the research methodology.
 
 ## Technology
 
@@ -169,7 +176,8 @@ Configuration: `NEXT_PUBLIC_API_URL` (web, default `http://localhost:8000`),
 `RAG_FORGE_OPENAI_BASE_URL` + `RAG_FORGE_OPENAI_MODEL` (+ optional `RAG_FORGE_OPENAI_API_KEY`) to register an
 OpenAI-compatible endpoint. Models download once into `~/.cache/huggingface` on first use: the embedder (~133 MB)
 at the first dense index build, the reranker (~90 MB) at the first reranked query, the generator (~790 MB) at the
-first answer. No model weights are stored in the repository.
+first answer. No model weights are stored in the repository. Arena runs reuse these loaded models; a run's size is
+bounded per experiment by `limits.max_cases` and `limits.concurrency` (1–4).
 
 ## Roadmap
 
@@ -180,5 +188,5 @@ first answer. No model weights are stored in the repository.
 5. ~~**Cross-encoder reranking.**~~ Done (Phase 5).
 6. ~~**Query intelligence and adaptive routing.**~~ Done (Phase 6): heuristic analyzer, rule policy, recorded decisions.
 7. ~~**Evidence, grounding and generation.**~~ Done (Phase 7): evidence selection, local grounded generation, claims, measured support, Evidence Lab.
-8. **Arena and experiment engine.** Judged datasets, runs, metrics and ablations; routed vs fixed pipelines measured.
+8. ~~**Arena and experiment engine.**~~ Done (Phase 8): versioned datasets, metric registry, snapshots, runs, ablations, paired statistics, Arena UI.
 9. **Replay and the research platform.** Reconstructing past runs from provenance; final presentation.

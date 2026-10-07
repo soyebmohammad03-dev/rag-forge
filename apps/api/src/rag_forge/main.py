@@ -8,7 +8,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from rag_forge import __version__
-from rag_forge.api import corpus, routes
+from rag_forge.api import arena, corpus, routes
+from rag_forge.arena.engine import ArenaEngine
 from rag_forge.domain.models import (
     Corpus,
     DenseIndexState,
@@ -36,6 +37,7 @@ from rag_forge.retrieval.service import RetrievalService, RetrieverFactory
 from rag_forge.router.analyzer import HeuristicQueryAnalyzer
 from rag_forge.router.policy import RulePolicy
 from rag_forge.router.service import AdaptiveRouter
+from rag_forge.storage.arena import ArenaStore
 from rag_forge.storage.blobs import BlobStore
 from rag_forge.storage.lexical_index import SqliteLexicalIndex
 from rag_forge.storage.sqlite import SqliteStore
@@ -122,7 +124,8 @@ def create_app(
     store = SqliteStore(data_dir / "rag_forge.sqlite3")
     lexical = SqliteLexicalIndex(store)
     app.state.store = store
-    app.state.ingestion = IngestionService(store, BlobStore(data_dir / "blobs"))
+    blobs = BlobStore(data_dir / "blobs")
+    app.state.ingestion = IngestionService(store, blobs)
     dense = DenseIndexService(SqliteVectorIndex(store), embedder)
     app.state.dense = dense
     # New strategies register here; the service, API and UI stay unchanged.
@@ -146,6 +149,14 @@ def create_app(
         {verifier.name: verifier},
         default_generator=generator.name,
     )
+    app.state.arena = ArenaEngine(
+        store,
+        ArenaStore(store, blobs),
+        app.state.ingestion,
+        app.state.retrieval,
+        app.state.rag,
+        dense,
+    )
     app.state.started_at = datetime.now(UTC)
     origins = os.environ.get("RAG_FORGE_CORS_ORIGINS", "http://localhost:3000").split(",")
     app.add_middleware(
@@ -153,4 +164,5 @@ def create_app(
     )
     app.include_router(routes.router)
     app.include_router(corpus.router)
+    app.include_router(arena.router)
     return app

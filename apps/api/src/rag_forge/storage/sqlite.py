@@ -20,8 +20,6 @@ from rag_forge.domain.models import (
     CorpusVersion,
     Document,
     DocumentVersion,
-    Experiment,
-    ExperimentRun,
     FileOutcome,
     IngestionRecord,
 )
@@ -108,6 +106,31 @@ CREATE INDEX dense_indexes_lookup ON dense_indexes (corpus_id, embedder_hash, ve
 CREATE TRIGGER dense_vectors_no_update BEFORE UPDATE ON dense_vectors
   BEGIN SELECT RAISE(ABORT, 'dense_vectors is append-only'); END;
 """,
+    4: """
+-- Arena. Dataset versions, experiments, per-case results and artifacts are immutable; a run row
+-- is updated only while it progresses (queued -> running -> completed | partial | failed).
+-- The Phase 0 experiments/runs placeholder tables are left untouched and unused.
+CREATE TABLE benchmark_datasets (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, version INTEGER NOT NULL, created_at TEXT NOT NULL,
+  data TEXT NOT NULL, UNIQUE (name, version));
+CREATE TABLE arena_experiments (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, data TEXT NOT NULL);
+CREATE TABLE arena_runs (
+  id TEXT PRIMARY KEY, experiment_id TEXT NOT NULL REFERENCES arena_experiments(id),
+  created_at TEXT NOT NULL, data TEXT NOT NULL);
+CREATE TABLE arena_run_cases (
+  run_id TEXT NOT NULL REFERENCES arena_runs(id), arm TEXT NOT NULL, case_id TEXT NOT NULL,
+  data TEXT NOT NULL, PRIMARY KEY (run_id, arm, case_id));
+CREATE TABLE arena_artifacts (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES arena_runs(id), data TEXT NOT NULL);
+"""
+    + "".join(
+        f"""
+CREATE TRIGGER {t}_no_update BEFORE UPDATE ON {t}
+  BEGIN SELECT RAISE(ABORT, '{t} is append-only'); END;
+CREATE TRIGGER {t}_no_delete BEFORE DELETE ON {t}
+  BEGIN SELECT RAISE(ABORT, '{t} is append-only'); END;"""
+        for t in ("benchmark_datasets", "arena_experiments", "arena_run_cases", "arena_artifacts")
+    ),
 }
 SCHEMA_VERSION = max(MIGRATIONS)
 
@@ -381,23 +404,3 @@ class SqliteStore:
                 )
             )
         return changes
-
-    # --- experiments -------------------------------------------------------------
-
-    def add_experiment(self, experiment: Experiment) -> Experiment:
-        with self.transaction() as db:
-            db.execute(
-                "INSERT INTO experiments VALUES (?, ?, ?)",
-                (experiment.id, experiment.created_at.isoformat(), experiment.model_dump_json()),
-            )
-        return experiment
-
-    def list_experiments(self) -> list[Experiment]:
-        with self.transaction() as db:
-            rows = db.execute("SELECT data FROM experiments ORDER BY created_at DESC").fetchall()
-        return [Experiment.model_validate_json(r[0]) for r in rows]
-
-    def list_runs(self) -> list[ExperimentRun]:
-        with self.transaction() as db:
-            rows = db.execute("SELECT data FROM runs").fetchall()
-        return [ExperimentRun.model_validate_json(r[0]) for r in rows]

@@ -12,7 +12,6 @@ from rag_forge.api.schemas import (
     ComponentHealth,
     ComponentState,
     EnvironmentResponse,
-    ExperimentCreate,
     HealthStatus,
     NotImplementedDetail,
     RagComponents,
@@ -24,8 +23,6 @@ from rag_forge.api.schemas import (
 )
 from rag_forge.domain.models import (
     EvidenceParams,
-    Experiment,
-    ExperimentRun,
     GenerationParams,
     Metric,
     RetrievalMode,
@@ -156,32 +153,6 @@ def rag_components(request: Request) -> RagComponents:
         evidence_defaults=EvidenceParams(),
         generation_defaults=GenerationParams(generator=rag.default_generator),
     )
-
-
-# --- Experiments --------------------------------------------------------------
-
-
-@router.get("/experiments", response_model=list[Experiment], tags=["experiments"])
-def list_experiments(request: Request) -> list[Experiment]:
-    return _store(request).list_experiments()
-
-
-@router.post(
-    "/experiments",
-    response_model=Experiment,
-    status_code=status.HTTP_201_CREATED,
-    tags=["experiments"],
-)
-def create_experiment(body: ExperimentCreate, request: Request) -> Experiment:
-    store = _store(request)
-    if body.corpus_id is not None and store.get_corpus(body.corpus_id) is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail="unknown corpus_id")
-    return store.add_experiment(Experiment(**body.model_dump()))
-
-
-@router.get("/runs", response_model=list[ExperimentRun], tags=["experiments"])
-def list_runs(request: Request) -> list[ExperimentRun]:
-    return _store(request).list_runs()
 
 
 # --- Evaluation ---------------------------------------------------------------

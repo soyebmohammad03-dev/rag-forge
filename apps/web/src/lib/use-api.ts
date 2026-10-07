@@ -59,7 +59,7 @@ export function useApi<T>(fetcher: Fetcher<T>, poll?: Poll<T>): ApiState<T> {
 
 export const fetchHealth = () => api.GET("/api/v1/health");
 export const fetchEnvironment = () => api.GET("/api/v1/provenance/environment");
-export const fetchExperiments = () => api.GET("/api/v1/experiments");
+export const fetchRuns = () => api.GET("/api/v1/runs");
 export const fetchCorpora = () => api.GET("/api/v1/corpora");
 export const fetchFormats = () => api.GET("/api/v1/ingestion/formats");
 export const fetchRagComponents = () => api.GET("/api/v1/rag/components");

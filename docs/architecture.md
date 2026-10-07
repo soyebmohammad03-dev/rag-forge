@@ -25,7 +25,7 @@ Packages exist only when they contain code. Current and planned:
 | `storage` | `CorpusStore` contract, SQLite store, content-addressed blob store | Present |
 | `ingestion` | Extractors, chunkers, ingestion service, versioning | Present (see [ingestion.md](ingestion.md)) |
 | `retrieval` | `Retriever` contract, BM25, `Embedder` + ONNX embedder, dense index + retriever, `FusionStrategy` (RRF, weighted), `HybridRetriever`, `Reranker` + ONNX cross-encoder | BM25, dense, hybrid and reranking present (see [retrieval.md](retrieval.md)) |
-| `experiments` | Run orchestration, ablation grids | Phase 3 |
+| `arena` | Benchmark datasets, metric registry, statistics, configuration snapshots, presets, `ArenaEngine` (experiments, runs, leaderboards, comparisons) | Present (see [arena.md](arena.md)) |
 | `router` | `QueryAnalyzer` + heuristic analyzer, `RouterPolicy` + rule baseline, `AdaptiveRouter` | Present (see [router.md](router.md)) |
 | `rag` | Evidence selection, context assembly, prompt contract, `Generator` + ONNX causal LM / extractive / OpenAI-compatible, claim extraction, `GroundingVerifier` + lexical-semantic baseline, `RagService` | Present (see [rag.md](rag.md)) |
 | `knowledge` | Entities, relations, graph retrieval support | Later |
@@ -37,16 +37,18 @@ Dependency direction: `api → services → domain`. `domain` imports nothing fr
 
 | Concern | Now | Next |
 |---|---|---|
-| Relational metadata (corpora, documents, versions, chunks, ingestions, experiments) | SQLite (`storage/sqlite.py`) | Postgres behind the same `CorpusStore` contract |
+| Relational metadata (corpora, documents, versions, chunks, ingestions, datasets, experiments, runs, run cases, artifacts) | SQLite (`storage/sqlite.py`) | Postgres behind the same `CorpusStore` contract |
 | Lexical index | SQLite inverted index (`storage/lexical_index.py`), version-scoped BM25 statistics | Same contract on Postgres |
 | Vectors | SQLite BLOBs keyed by (embedder hash, chunk), exact cosine search (`storage/vector_index.py`) | FAISS / pgvector / ANN behind the same class |
 | Original document bytes | Content-addressed files `data/blobs/ab/abcd…` | Object storage with the same addressing |
-| Provenance | Model defined | Stored with each run, immutable |
+| Run traces | Content-addressed blobs referenced by `arena_artifacts` | Object storage |
+| Provenance | Per run: snapshots, environment, registry and statistics versions | Replay (Phase 9) |
 
 ## Identity and reproducibility
 
-- `RAGConfiguration.config_hash()` is a SHA-256 of all behaviour-relevant fields (not `id` or
-  `name`). Two runs with the same hash, corpus version and dataset version must be comparable.
+- `ConfigurationSnapshot.config_hash()` is a SHA-256 of every behaviour-relevant field of an
+  Arena arm (not its name), resolved at experiment creation. Two arms with the same hash, corpus
+  version and dataset version must be comparable; the engine refuses comparisons that are not.
 - `ProvenanceRecord` holds the config hash, corpus and dataset versions, retrieved chunk ids and
   an `EnvironmentSnapshot` (package versions, Python, platform, git commit).
 - `RetrievalConfiguration.config_hash()` identifies a complete retrieval setup (corpus version,
@@ -56,7 +58,7 @@ Dependency direction: `api → services → domain`. `domain` imports nothing fr
 ## Frontend structure
 
 - `app/`: routing only. Built areas have their own routes (`/corpus`, `/corpus/[corpusId]`, `/retrieval`, `/router`, `/evidence`,
-  `/system`); planned areas share one dynamic route (`[area]`) driven by `lib/areas.ts`.
+  `/arena`, `/experiments`, `/results`, `/system`); planned areas share one dynamic route (`[area]`) driven by `lib/areas.ts`.
 - `components/ui/`: the design system (panel, button, badge, tabs, tooltip, dialog/drawer,
   data table, metric card, sparkline, chart theme, graph node, pipeline steps, states).
 - `components/shell/`: sidebar, top bar, command palette (⌘K), shortcuts (?).

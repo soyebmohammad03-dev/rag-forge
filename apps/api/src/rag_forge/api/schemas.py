@@ -111,12 +111,6 @@ class SupportedFormat(BaseModel):
     parser: str
 
 
-class ExperimentCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
-    hypothesis: str = ""
-    corpus_id: str | None = None
-
-
 class RouterRequest(BaseModel):
     corpus_id: str
     query: str = Field(min_length=1, max_length=2000)

@@ -75,41 +75,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/experiments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Experiments */
-        get: operations["list_experiments_api_v1_experiments_get"];
-        put?: never;
-        /** Create Experiment */
-        post: operations["create_experiment_api_v1_experiments_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Runs */
-        get: operations["list_runs_api_v1_runs_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/evaluation/retrieval": {
         parameters: {
             query?: never;
@@ -358,10 +323,435 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/arena/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Overview */
+        get: operations["overview_api_v1_arena_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/arena/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metric Definitions
+         * @description Every metric: family, version, required annotations and outputs, unit, direction.
+         */
+        get: operations["metric_definitions_api_v1_arena_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/arena/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Arena Presets
+         * @description Arm templates and suggested ablations. Templates, not results: nothing runs by default.
+         */
+        get: operations["arena_presets_api_v1_arena_presets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/benchmarks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Datasets */
+        get: operations["list_datasets_api_v1_benchmarks_get"];
+        put?: never;
+        /**
+         * Create Dataset
+         * @description Register a user benchmark. Annotations are checked against the pinned corpus version.
+         *     Unchanged content returns the existing version; changed content creates the next one.
+         */
+        post: operations["create_dataset_api_v1_benchmarks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/benchmarks/development": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Development
+         * @description Create the bundled development corpus (and its dense index) and register its dataset.
+         *     Idempotent. The development set validates the pipeline; it does not rank methods.
+         */
+        post: operations["install_development_api_v1_benchmarks_development_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/benchmarks/{dataset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Dataset */
+        get: operations["get_dataset_api_v1_benchmarks__dataset_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/arena/configurations/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve Configurations
+         * @description Snapshots, hashes and differences for a candidate matrix, without creating anything.
+         */
+        post: operations["resolve_configurations_api_v1_arena_configurations_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/experiments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Experiments */
+        get: operations["list_experiments_api_v1_experiments_get"];
+        put?: never;
+        /**
+         * Create Experiment
+         * @description Resolve every arm into an immutable configuration snapshot and validate the ablations.
+         */
+        post: operations["create_experiment_api_v1_experiments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/experiments/{experiment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Experiment */
+        get: operations["get_experiment_api_v1_experiments__experiment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/experiments/{experiment_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Experiment Runs */
+        get: operations["experiment_runs_api_v1_experiments__experiment_id__runs_get"];
+        put?: never;
+        /**
+         * Start Run
+         * @description Queue a run of every arm over the dataset's cases; poll GET /runs/{id} for progress.
+         */
+        post: operations["start_run_api_v1_experiments__experiment_id__runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_api_v1_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run_api_v1_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Cases
+         * @description Per-case results, in dataset order then arm order. Failed cases are included.
+         */
+        get: operations["run_cases_api_v1_runs__run_id__cases_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/cases/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Case View
+         * @description One benchmark case, with its annotations, across every arm of the run.
+         */
+        get: operations["case_view_api_v1_runs__run_id__cases__case_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Leaderboard */
+        get: operations["leaderboard_api_v1_runs__run_id__leaderboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare Arms
+         * @description Paired comparison of two arms of one run over the cases both evaluated.
+         */
+        get: operations["compare_arms_api_v1_runs__run_id__compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/arena/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare Runs
+         * @description Paired comparison across runs. Refused (comparable: false) when the datasets, corpus
+         *     versions or metric definitions differ.
+         */
+        get: operations["compare_runs_api_v1_arena_compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/artifacts/{artifact_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Artifact
+         * @description The full pipeline trace recorded for one case of one arm.
+         */
+        get: operations["artifact_api_v1_artifacts__artifact_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Ablation */
+        Ablation: {
+            /** Baseline */
+            baseline: string;
+            /** Variant */
+            variant: string;
+            /** Factor */
+            factor: string;
+            /** Note */
+            note: string;
+            /**
+             * Factors
+             * @description Arm settings that differ, e.g. retrieval.rerank
+             */
+            factors: string[];
+            /**
+             * Single Factor
+             * @description Exactly one arm setting differs
+             */
+            single_factor: boolean;
+            /**
+             * Changes
+             * @description Every resolved snapshot field that differs
+             */
+            changes: components["schemas"]["ConfigChange"][];
+        };
+        /** AblationSpec */
+        "AblationSpec-Input": {
+            /**
+             * Baseline
+             * @description Arm name
+             */
+            baseline: string;
+            /**
+             * Variant
+             * @description Arm name
+             */
+            variant: string;
+            /**
+             * Factor
+             * @description What the ablation varies
+             */
+            factor: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** AblationSpec */
+        "AblationSpec-Output": {
+            /**
+             * Baseline
+             * @description Arm name
+             */
+            baseline: string;
+            /**
+             * Variant
+             * @description Arm name
+             */
+            variant: string;
+            /**
+             * Factor
+             * @description What the ablation varies
+             */
+            factor: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /**
+         * Annotation
+         * @enum {string}
+         */
+        Annotation: "relevance" | "reference_answer" | "answerable" | "expected_evidence";
         /**
          * AnswerGrounding
          * @enum {string}
@@ -372,6 +762,269 @@ export interface components {
          * @enum {string}
          */
         AnswerStatus: "answered" | "abstained" | "insufficient_evidence" | "not_generated";
+        /** ArenaOverview */
+        ArenaOverview: {
+            /** Datasets */
+            datasets: components["schemas"]["DatasetSummary"][];
+            /** Experiments */
+            experiments: number;
+            /**
+             * Runs
+             * @description Most recent first
+             */
+            runs: components["schemas"]["RunDigest"][];
+            /** Metric Registry */
+            metric_registry: string;
+            stats_method: components["schemas"]["StatsMethod"];
+        };
+        /** ArenaPresets */
+        ArenaPresets: {
+            /** Arms */
+            arms: components["schemas"]["Arm-Output"][];
+            /** Ablations */
+            ablations: components["schemas"]["AblationSpec-Output"][];
+            metrics: components["schemas"]["MetricSettings-Output"];
+        };
+        /**
+         * Arm
+         * @description One configuration under test.
+         */
+        "Arm-Input": {
+            /** Name */
+            name: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /** @default retrieval */
+            pipeline: components["schemas"]["PipelineKind"];
+            retrieval?: components["schemas"]["RetrievalTemplate-Input"];
+            evidence?: components["schemas"]["EvidenceParams-Input"] | null;
+            generation?: components["schemas"]["GenerationParams-Input"] | null;
+            grounding?: components["schemas"]["GroundingParams-Input"];
+        };
+        /**
+         * Arm
+         * @description One configuration under test.
+         */
+        "Arm-Output": {
+            /** Name */
+            name: string;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /** @default retrieval */
+            pipeline: components["schemas"]["PipelineKind"];
+            retrieval: components["schemas"]["RetrievalTemplate-Output"];
+            evidence: components["schemas"]["EvidenceParams-Output"] | null;
+            generation: components["schemas"]["GenerationParams-Output"] | null;
+            grounding: components["schemas"]["GroundingParams-Output"];
+        };
+        /** ArmRef */
+        ArmRef: {
+            /** Run Id */
+            run_id: string;
+            /** Arm */
+            arm: string;
+            /** Config Hash */
+            config_hash: string;
+            /** Label */
+            label: string;
+        };
+        /** ArmSummary */
+        ArmSummary: {
+            /** Arm */
+            arm: string;
+            /** Label */
+            label: string;
+            pipeline: components["schemas"]["PipelineKind"];
+            /** Config Hash */
+            config_hash: string;
+            /** Cases */
+            cases: number;
+            /** Succeeded */
+            succeeded: number;
+            /** Failed */
+            failed: number;
+            /** Failure Types */
+            failure_types: {
+                [key: string]: number;
+            };
+            /** Metrics */
+            metrics: components["schemas"]["MetricSummary"][];
+            /**
+             * Skipped Reasons
+             * @description Metric -> why some cases skipped it
+             */
+            skipped_reasons: {
+                [key: string]: string;
+            };
+        };
+        /** ArtifactTrace */
+        ArtifactTrace: {
+            /** Artifact Id */
+            artifact_id: string;
+            /** Kind */
+            kind: string;
+            /** @description rag_trace artifacts */
+            rag: components["schemas"]["RagResponse"] | null;
+            /** @description retrieval_trace artifacts */
+            retrieval: components["schemas"]["RetrievalResponse"] | null;
+        };
+        /**
+         * BenchmarkCase
+         * @description One query with whatever ground truth exists for it. Every annotation is optional.
+         */
+        "BenchmarkCase-Input": {
+            /** Id */
+            id: string;
+            /** Query */
+            query: string;
+            /**
+             * Relevant Documents
+             * @description Filename -> graded relevance (> 0 relevant, 0 judged non-relevant)
+             */
+            relevant_documents?: {
+                [key: string]: number;
+            };
+            /**
+             * Relevant Chunks
+             * @description Chunk id -> graded relevance; takes precedence
+             */
+            relevant_chunks?: {
+                [key: string]: number;
+            };
+            /** Reference Answer */
+            reference_answer?: string | null;
+            /**
+             * Answerable
+             * @description null = not judged; false = the corpus cannot answer it
+             */
+            answerable?: boolean | null;
+            /**
+             * Expected Evidence
+             * @description Filenames the selected evidence should include
+             */
+            expected_evidence?: string[];
+            /** Tags */
+            tags?: string[];
+            /** Metadata */
+            metadata?: {
+                [key: string]: string | number | boolean;
+            };
+        };
+        /**
+         * BenchmarkCase
+         * @description One query with whatever ground truth exists for it. Every annotation is optional.
+         */
+        "BenchmarkCase-Output": {
+            /** Id */
+            id: string;
+            /** Query */
+            query: string;
+            /**
+             * Relevant Documents
+             * @description Filename -> graded relevance (> 0 relevant, 0 judged non-relevant)
+             */
+            relevant_documents: {
+                [key: string]: number;
+            };
+            /**
+             * Relevant Chunks
+             * @description Chunk id -> graded relevance; takes precedence
+             */
+            relevant_chunks: {
+                [key: string]: number;
+            };
+            /** Reference Answer */
+            reference_answer: string | null;
+            /**
+             * Answerable
+             * @description null = not judged; false = the corpus cannot answer it
+             */
+            answerable: boolean | null;
+            /**
+             * Expected Evidence
+             * @description Filenames the selected evidence should include
+             */
+            expected_evidence: string[];
+            /** Tags */
+            tags: string[];
+            /** Metadata */
+            metadata: {
+                [key: string]: string | number | boolean;
+            };
+        };
+        /**
+         * BenchmarkDataset
+         * @description An immutable dataset version, pinned to one corpus version.
+         */
+        BenchmarkDataset: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Version
+             * @description +1 whenever the content of a dataset name changes
+             */
+            version: number;
+            source: components["schemas"]["DatasetSource"];
+            /** Description */
+            description: string;
+            /** Annotation Notes */
+            annotation_notes: string;
+            /** Corpus Id */
+            corpus_id: string;
+            /** Corpus Version */
+            corpus_version: number;
+            /** Chunking Hash */
+            chunking_hash: string;
+            /** Cases */
+            cases: components["schemas"]["BenchmarkCase-Output"][];
+            /** Annotation Counts */
+            annotation_counts: {
+                [key: string]: number;
+            };
+            /**
+             * Content Hash
+             * @description Hash of corpus version and cases: equal content, equal hash
+             */
+            content_hash: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** BenchmarkDatasetCreate */
+        BenchmarkDatasetCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Corpus Id */
+            corpus_id: string;
+            /**
+             * Corpus Version
+             * @description Default: current
+             */
+            corpus_version?: number | null;
+            /**
+             * Annotation Notes
+             * @description How the ground truth was established
+             * @default
+             */
+            annotation_notes: string;
+            /** Cases */
+            cases: components["schemas"]["BenchmarkCase-Input"][];
+        };
         /** Bm25Params */
         "Bm25Params-Input": {
             /**
@@ -409,6 +1062,36 @@ export interface components {
              * @description One or more .txt, .md or .pdf files
              */
             files: string[];
+        };
+        /** CaseDifference */
+        CaseDifference: {
+            /** Case Id */
+            case_id: string;
+            /** Baseline */
+            baseline: number;
+            /** Variant */
+            variant: number;
+            /**
+             * Difference
+             * @description variant - baseline
+             */
+            difference: number;
+        };
+        /**
+         * CaseStatus
+         * @enum {string}
+         */
+        CaseStatus: "ok" | "failed";
+        /**
+         * CaseView
+         * @description One benchmark case across every arm of a run.
+         */
+        CaseView: {
+            /** Run Id */
+            run_id: string;
+            case: components["schemas"]["BenchmarkCase-Output"];
+            /** Results */
+            results: components["schemas"]["RunCase"][];
         };
         /** ChatMessage */
         ChatMessage: {
@@ -599,6 +1282,33 @@ export interface components {
          * @enum {string}
          */
         ClaimKind: "factual" | "abstention" | "non_assertive";
+        /** Comparison */
+        Comparison: {
+            baseline: components["schemas"]["ArmRef"];
+            variant: components["schemas"]["ArmRef"];
+            /**
+             * Comparable
+             * @description False: no paired statistics are computed
+             */
+            comparable: boolean;
+            /**
+             * Issues
+             * @description Why the arms cannot be compared
+             */
+            issues: string[];
+            /** Warnings */
+            warnings: string[];
+            /** Changes */
+            changes: components["schemas"]["ConfigChange"][];
+            /**
+             * Factor
+             * @description The declared ablation factor, if this pair is one
+             */
+            factor: string | null;
+            method: components["schemas"]["StatsMethod"];
+            /** Metrics */
+            metrics: components["schemas"]["PairedComparison"][];
+        };
         /**
          * Complexity
          * @enum {string}
@@ -644,6 +1354,76 @@ export interface components {
          * @enum {string}
          */
         ComponentState: "ok" | "not_configured" | "error";
+        /** ConfigChange */
+        ConfigChange: {
+            /**
+             * Path
+             * @description Dotted path in the configuration snapshot
+             */
+            path: string;
+            /** Baseline */
+            baseline: unknown;
+            /** Variant */
+            variant: unknown;
+        };
+        /**
+         * ConfigurationSnapshot
+         * @description Everything that determines an arm's results, resolved at experiment creation.
+         */
+        ConfigurationSnapshot: {
+            /** Arm */
+            arm: string;
+            pipeline: components["schemas"]["PipelineKind"];
+            /** Dataset Id */
+            dataset_id: string;
+            /** Dataset Name */
+            dataset_name: string;
+            /** Dataset Version */
+            dataset_version: number;
+            /** Dataset Hash */
+            dataset_hash: string;
+            /** Corpus Id */
+            corpus_id: string;
+            /** Corpus Version */
+            corpus_version: number;
+            /** Chunking Hash */
+            chunking_hash: string;
+            retrieval_mode: components["schemas"]["RetrievalMode"];
+            retrieval_template: components["schemas"]["RetrievalTemplate-Output"];
+            /** @description Manual arms: the resolved retrieval configuration. Adaptive arms choose per case; each RunCase records the configuration actually used */
+            retrieval: components["schemas"]["RetrievalConfiguration"] | null;
+            /**
+             * Query Analyzer
+             * @description name@version, adaptive arms only
+             */
+            query_analyzer: string | null;
+            /**
+             * Router Policy
+             * @description name@version, adaptive arms only
+             */
+            router_policy: string | null;
+            /** Routing Hash */
+            routing_hash: string | null;
+            embedder: components["schemas"]["EmbedderSpec"] | null;
+            reranker: components["schemas"]["RerankerSpec"] | null;
+            evidence: components["schemas"]["EvidenceParams-Output"] | null;
+            /** Prompt Template */
+            prompt_template: string | null;
+            generator: components["schemas"]["GeneratorIdentity"] | null;
+            /** @description Effective parameters */
+            generation: components["schemas"]["GenerationParams-Output"] | null;
+            /** Verifier */
+            verifier: string | null;
+            /** Verifier Config Hash */
+            verifier_config_hash: string | null;
+            metrics: components["schemas"]["MetricSettings-Output"];
+            /** Metric Versions */
+            metric_versions: {
+                [key: string]: number;
+            };
+            /** Engine Version */
+            engine_version: string;
+        };
         /**
          * ContentOrigin
          * @description Where a piece of information came from. Every value shown to a user carries one.
@@ -790,6 +1570,40 @@ export interface components {
              * @default 0
              */
             unchanged: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * DatasetSource
+         * @enum {string}
+         */
+        DatasetSource: "development" | "user" | "external";
+        /** DatasetSummary */
+        DatasetSummary: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+            source: components["schemas"]["DatasetSource"];
+            /** Description */
+            description: string;
+            /** Corpus Id */
+            corpus_id: string;
+            /** Corpus Version */
+            corpus_version: number;
+            /** Case Count */
+            case_count: number;
+            /** Annotation Counts */
+            annotation_counts: {
+                [key: string]: number;
+            };
+            /** Content Hash */
+            content_hash: string;
             /**
              * Created At
              * Format: date-time
@@ -1294,17 +2108,34 @@ export interface components {
             id: string;
             /** Name */
             name: string;
-            /**
-             * Hypothesis
-             * @default
-             */
+            /** Hypothesis */
             hypothesis: string;
+            /** Dataset Id */
+            dataset_id: string;
+            /** Dataset Name */
+            dataset_name: string;
+            /** Dataset Version */
+            dataset_version: number;
+            dataset_source: components["schemas"]["DatasetSource"];
             /** Corpus Id */
-            corpus_id: string | null;
-            /** Configuration Ids */
-            configuration_ids: string[];
-            /** @default draft */
-            status: components["schemas"]["ExperimentStatus"];
+            corpus_id: string;
+            /** Corpus Version */
+            corpus_version: number;
+            /** Arms */
+            arms: components["schemas"]["Arm-Output"][];
+            /** Snapshots */
+            snapshots: components["schemas"]["ConfigurationSnapshot"][];
+            /**
+             * Snapshot Hashes
+             * @description Arm -> configuration hash
+             */
+            snapshot_hashes: {
+                [key: string]: string;
+            };
+            /** Ablations */
+            ablations: components["schemas"]["Ablation"][];
+            metrics: components["schemas"]["MetricSettings-Output"];
+            limits: components["schemas"]["RunLimits-Output"];
             /**
              * Created At
              * Format: date-time
@@ -1320,8 +2151,14 @@ export interface components {
              * @default
              */
             hypothesis: string;
-            /** Corpus Id */
-            corpus_id?: string | null;
+            /** Dataset Id */
+            dataset_id: string;
+            /** Arms */
+            arms: components["schemas"]["Arm-Input"][];
+            /** Ablations */
+            ablations?: components["schemas"]["AblationSpec-Input"][];
+            metrics?: components["schemas"]["MetricSettings-Input"];
+            limits?: components["schemas"]["RunLimits-Input"];
         };
         /** ExperimentRun */
         ExperimentRun: {
@@ -1329,24 +2166,61 @@ export interface components {
             id: string;
             /** Experiment Id */
             experiment_id: string;
-            /** Configuration Id */
-            configuration_id: string;
-            /** Config Hash */
-            config_hash: string;
             /** @default queued */
-            status: components["schemas"]["ExperimentStatus"];
+            status: components["schemas"]["RunStatus"];
+            /** Dataset Id */
+            dataset_id: string;
+            /** Dataset Version */
+            dataset_version: number;
+            /** Dataset Hash */
+            dataset_hash: string;
+            /** Corpus Id */
+            corpus_id: string;
+            /** Corpus Version */
+            corpus_version: number;
+            /** Case Ids */
+            case_ids: string[];
+            /** Arms */
+            arms: string[];
+            /** Snapshot Hashes */
+            snapshot_hashes: {
+                [key: string]: string;
+            };
+            limits: components["schemas"]["RunLimits-Output"];
+            /**
+             * Total
+             * @description cases x arms
+             */
+            total: number;
+            /**
+             * Completed
+             * @default 0
+             */
+            completed: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /** Metric Registry Version */
+            metric_registry_version: string;
+            /** Stats Method */
+            stats_method: string;
+            environment: components["schemas"]["EnvironmentSnapshot"];
+            /** Summaries */
+            summaries: components["schemas"]["ArmSummary"][];
+            /** Error */
+            error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /** Started At */
             started_at: string | null;
             /** Finished At */
             finished_at: string | null;
-            /** Provenance Id */
-            provenance_id: string | null;
         };
-        /**
-         * ExperimentStatus
-         * @enum {string}
-         */
-        ExperimentStatus: "draft" | "queued" | "running" | "completed" | "failed";
         /**
          * ExtractionStatus
          * @enum {string}
@@ -1554,6 +2428,19 @@ export interface components {
             /** Loaded */
             loaded: boolean;
         };
+        /** GeneratorIdentity */
+        GeneratorIdentity: {
+            /** Name */
+            name: string;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Revision */
+            revision: string | null;
+            /** Config Hash */
+            config_hash: string;
+        };
         /**
          * GeneratorInfo
          * @description The spec plus facts read from the loaded model (or the remote endpoint's identity).
@@ -1591,7 +2478,16 @@ export interface components {
             };
         };
         /** GroundingParams */
-        GroundingParams: {
+        "GroundingParams-Input": {
+            /**
+             * Verifier
+             * @description A registered verifier
+             * @default lexical-semantic
+             */
+            verifier: string;
+        };
+        /** GroundingParams */
+        "GroundingParams-Output": {
             /**
              * Verifier
              * @description A registered verifier
@@ -1675,6 +2571,28 @@ export interface components {
             latency_ms: number;
             /** @default measured */
             origin: components["schemas"]["ContentOrigin"];
+        };
+        /** GroundingSnapshot */
+        GroundingSnapshot: {
+            status: components["schemas"]["AnswerGrounding"];
+            /** Claims */
+            claims: number;
+            /** Factual Claims */
+            factual_claims: number;
+            /** Supported */
+            supported: number;
+            /** Weakly Supported */
+            weakly_supported: number;
+            /** Unsupported */
+            unsupported: number;
+            /** Grounding Score */
+            grounding_score: number | null;
+            /** Citation Coverage */
+            citation_coverage: number | null;
+            /** Citation Precision */
+            citation_precision: number | null;
+            /** Evidence Coverage */
+            evidence_coverage: number | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1819,6 +2737,43 @@ export interface components {
          * @enum {string}
          */
         IngestionStatus: "completed" | "no_change" | "failed";
+        /** Leaderboard */
+        Leaderboard: {
+            /** Run Id */
+            run_id: string;
+            /** Metric */
+            metric: string;
+            /** Higher Is Better */
+            higher_is_better: boolean | null;
+            /** Rows */
+            rows: components["schemas"]["LeaderboardRow"][];
+            /** Note */
+            note: string;
+        };
+        /** LeaderboardRow */
+        LeaderboardRow: {
+            /**
+             * Position
+             * @description null when the metric is undefined for the arm
+             */
+            position: number | null;
+            /** Arm */
+            arm: string;
+            /** Label */
+            label: string;
+            pipeline: components["schemas"]["PipelineKind"];
+            /** Config Hash */
+            config_hash: string;
+            summary: components["schemas"]["MetricSummary"] | null;
+            /** Ci Overlaps Leader */
+            ci_overlaps_leader: boolean | null;
+            /** Failed */
+            failed: number;
+            /** Cases */
+            cases: number;
+            /** Mean Latency Ms */
+            mean_latency_ms: number | null;
+        };
         /** Metric */
         Metric: {
             /** Name */
@@ -1830,6 +2785,132 @@ export interface components {
             /** @default measured */
             origin: components["schemas"]["ContentOrigin"];
         };
+        /** MetricDefinition */
+        MetricDefinition: {
+            /**
+             * Name
+             * @description Base name; k-parameterised metrics report name@k
+             */
+            name: string;
+            family: components["schemas"]["MetricFamily"];
+            /** Version */
+            version: number;
+            /** Description */
+            description: string;
+            /**
+             * Requires
+             * @description Annotations without which it is skipped
+             */
+            requires: components["schemas"]["Annotation"][];
+            /**
+             * Requires Output
+             * @description Pipeline outputs it needs, e.g. reranking, generation
+             */
+            requires_output: string[];
+            /** Per K */
+            per_k: boolean;
+            /** Unit */
+            unit: string;
+            /**
+             * Aggregation
+             * @default mean over the cases where it is defined
+             */
+            aggregation: string;
+            /**
+             * Higher Is Better
+             * @description null for descriptive metrics
+             */
+            higher_is_better: boolean | null;
+        };
+        /**
+         * MetricFamily
+         * @enum {string}
+         */
+        MetricFamily: "retrieval" | "reranking" | "evidence" | "generation" | "operational";
+        /** MetricSettings */
+        "MetricSettings-Input": {
+            /** Ks */
+            ks?: number[];
+            /**
+             * Metrics
+             * @description Base metric names to compute; null = every registered metric
+             */
+            metrics?: string[] | null;
+        };
+        /** MetricSettings */
+        "MetricSettings-Output": {
+            /** Ks */
+            ks: number[];
+            /**
+             * Metrics
+             * @description Base metric names to compute; null = every registered metric
+             */
+            metrics: string[] | null;
+        };
+        /** MetricSummary */
+        MetricSummary: {
+            /** Metric */
+            metric: string;
+            family: components["schemas"]["MetricFamily"];
+            /** Version */
+            version: number;
+            /** Higher Is Better */
+            higher_is_better: boolean | null;
+            /**
+             * N
+             * @description Cases where the metric is defined
+             */
+            n: number;
+            /**
+             * Skipped
+             * @description Cases where it was skipped (annotations or output absent)
+             */
+            skipped: number;
+            /** Mean */
+            mean: number | null;
+            /** Median */
+            median: number | null;
+            /** Std */
+            std: number | null;
+            /** Min */
+            min: number | null;
+            /** Max */
+            max: number | null;
+            /** Ci Low */
+            ci_low: number | null;
+            /** Ci High */
+            ci_high: number | null;
+            /** Ci Method */
+            ci_method: string | null;
+        };
+        /** MetricValue */
+        MetricValue: {
+            /**
+             * Metric
+             * @description e.g. recall@5
+             */
+            metric: string;
+            family: components["schemas"]["MetricFamily"];
+            /** Version */
+            version: number;
+            /**
+             * Value
+             * @description null when skipped
+             */
+            value: number | null;
+            /**
+             * Skipped
+             * @description Why it could not be computed
+             */
+            skipped: string | null;
+            /**
+             * Detail
+             * @description e.g. relevance unit: document
+             */
+            detail: string | null;
+            /** @default measured */
+            origin: components["schemas"]["ContentOrigin"];
+        };
         /** NotImplementedDetail */
         NotImplementedDetail: {
             /** Capability */
@@ -1837,6 +2918,80 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** PairDiff */
+        PairDiff: {
+            /** Baseline */
+            baseline: string;
+            /** Variant */
+            variant: string;
+            /** Factors */
+            factors: string[];
+            /** Changes */
+            changes: components["schemas"]["ConfigChange"][];
+        };
+        /** PairedComparison */
+        PairedComparison: {
+            /** Metric */
+            metric: string;
+            family: components["schemas"]["MetricFamily"];
+            /** Higher Is Better */
+            higher_is_better: boolean | null;
+            /**
+             * N Pairs
+             * @description Cases where both arms define the metric
+             */
+            n_pairs: number;
+            /** Baseline Mean */
+            baseline_mean: number | null;
+            /** Variant Mean */
+            variant_mean: number | null;
+            /** Mean Difference */
+            mean_difference: number | null;
+            /** Median Difference */
+            median_difference: number | null;
+            /** Std Difference */
+            std_difference: number | null;
+            /** Ci Low */
+            ci_low: number | null;
+            /** Ci High */
+            ci_high: number | null;
+            /**
+             * Effect Size Dz
+             * @description mean / sd of paired differences
+             */
+            effect_size_dz: number | null;
+            /**
+             * Wins
+             * @description Cases where the variant is better
+             */
+            wins: number;
+            /** Losses */
+            losses: number;
+            /** Ties */
+            ties: number;
+            /**
+             * Sign Test P
+             * @description Exact two-sided sign test, ties dropped
+             */
+            sign_test_p: number | null;
+            /**
+             * Holm P
+             * @description Holm-adjusted across the metrics compared
+             */
+            holm_p: number | null;
+            /**
+             * Conclusion
+             * @description insufficient_cases | no_detectable_difference | variant_higher | variant_lower | descriptive_only
+             */
+            conclusion: string;
+            /** Differences */
+            differences: components["schemas"]["CaseDifference"][];
+        };
+        /**
+         * PipelineKind
+         * @enum {string}
+         */
+        PipelineKind: "retrieval" | "rag";
         /**
          * PipelineStage
          * @description One link of the provenance chain: what the stage was, its identity and its cost.
@@ -2074,7 +3229,7 @@ export interface components {
             evidence?: components["schemas"]["EvidenceParams-Input"];
             /** @description null = stop after evidence selection and context assembly */
             generation?: components["schemas"]["GenerationParams-Input"] | null;
-            grounding?: components["schemas"]["GroundingParams"];
+            grounding?: components["schemas"]["GroundingParams-Input"];
         };
         /** RagResponse */
         RagResponse: {
@@ -2097,6 +3252,29 @@ export interface components {
          * @enum {string}
          */
         RankMovement: "promoted" | "demoted" | "unchanged";
+        /** RankedItem */
+        RankedItem: {
+            /** Rank */
+            rank: number;
+            /** Chunk Id */
+            chunk_id: string;
+            /** Document Id */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /** Score */
+            score: number;
+            /**
+             * Upstream Rank
+             * @description Rank before reranking, if reranked
+             */
+            upstream_rank: number | null;
+            /**
+             * Relevance
+             * @description The case's grade for it; null if not judged
+             */
+            relevance: number | null;
+        };
         /**
          * RerankCandidate
          * @description One scored candidate, including those that did not make the final top-k.
@@ -2297,6 +3475,32 @@ export interface components {
              * @default 32
              */
             batch_size: number;
+        };
+        /** ResolveRequest */
+        ResolveRequest: {
+            /** Dataset Id */
+            dataset_id: string;
+            /** Arms */
+            arms: components["schemas"]["Arm-Input"][];
+            metrics?: components["schemas"]["MetricSettings-Input"];
+        };
+        /** ResolveResponse */
+        ResolveResponse: {
+            /** Arms */
+            arms: components["schemas"]["ResolvedArm"][];
+            /**
+             * Diffs
+             * @description Each arm against the first
+             */
+            diffs: components["schemas"]["PairDiff"][];
+            /** Dense Index Ready */
+            dense_index_ready: boolean;
+        };
+        /** ResolvedArm */
+        ResolvedArm: {
+            snapshot: components["schemas"]["ConfigurationSnapshot"];
+            /** Config Hash */
+            config_hash: string;
         };
         /**
          * RetrievalConfiguration
@@ -2507,6 +3711,44 @@ export interface components {
          * @enum {string}
          */
         RetrievalStrategy: "sparse" | "dense" | "hybrid" | "metadata" | "graph" | "multi_hop" | "decomposition" | "multimodal";
+        /**
+         * RetrievalTemplate
+         * @description A RetrievalRequest without the query and corpus version, which each case supplies.
+         */
+        "RetrievalTemplate-Input": {
+            /**
+             * Top K
+             * @default 10
+             */
+            top_k: number;
+            /** @default sparse */
+            strategy: components["schemas"]["RetrievalStrategy"];
+            bm25?: components["schemas"]["Bm25Params-Input"];
+            hybrid?: components["schemas"]["HybridParams-Input"];
+            rerank?: components["schemas"]["RerankParams-Input"];
+            /** @default manual */
+            mode: components["schemas"]["RetrievalMode"];
+            router?: components["schemas"]["RouterParams-Input"];
+        };
+        /**
+         * RetrievalTemplate
+         * @description A RetrievalRequest without the query and corpus version, which each case supplies.
+         */
+        "RetrievalTemplate-Output": {
+            /**
+             * Top K
+             * @default 10
+             */
+            top_k: number;
+            /** @default sparse */
+            strategy: components["schemas"]["RetrievalStrategy"];
+            bm25: components["schemas"]["Bm25Params-Output"];
+            hybrid: components["schemas"]["HybridParams-Output"];
+            rerank: components["schemas"]["RerankParams-Output"];
+            /** @default manual */
+            mode: components["schemas"]["RetrievalMode"];
+            router: components["schemas"]["RouterParams-Output"];
+        };
         /** RouteAlternative */
         RouteAlternative: {
             option: components["schemas"]["RouteOption"];
@@ -2705,6 +3947,146 @@ export interface components {
             outcome: string | null;
         };
         /**
+         * RunCase
+         * @description One case evaluated under one arm: what ran, what came out, and its metrics.
+         */
+        RunCase: {
+            /** Run Id */
+            run_id: string;
+            /** Experiment Id */
+            experiment_id: string;
+            /** Arm */
+            arm: string;
+            /** Case Id */
+            case_id: string;
+            /**
+             * Config Hash
+             * @description The arm's configuration snapshot hash
+             */
+            config_hash: string;
+            /**
+             * Retrieval Configuration Hash
+             * @description The retrieval configuration that actually ran (adaptive arms vary)
+             */
+            retrieval_configuration_hash: string | null;
+            status: components["schemas"]["CaseStatus"];
+            /** Error Type */
+            error_type: string | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Route
+             * @description Adaptive arms: the option the router chose
+             */
+            route: string | null;
+            /** Ranking */
+            ranking: components["schemas"]["RankedItem"][];
+            /**
+             * Evidence
+             * @description Selected evidence filenames
+             */
+            evidence: string[];
+            answer_status: components["schemas"]["AnswerStatus"] | null;
+            /** Answer */
+            answer: string | null;
+            grounding: components["schemas"]["GroundingSnapshot"] | null;
+            /** Metrics */
+            metrics: components["schemas"]["MetricValue"][];
+            /** Timings Ms */
+            timings_ms: {
+                [key: string]: number;
+            };
+            /** Tokens */
+            tokens: {
+                [key: string]: number;
+            };
+            /**
+             * Models
+             * @description Component -> model@revision
+             */
+            models: {
+                [key: string]: string;
+            };
+            /**
+             * Artifact Id
+             * @description Full pipeline trace
+             */
+            artifact_id: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Finished At
+             * Format: date-time
+             */
+            finished_at: string;
+        };
+        /** RunDigest */
+        RunDigest: {
+            /** Run Id */
+            run_id: string;
+            /** Experiment Id */
+            experiment_id: string;
+            /** Experiment Name */
+            experiment_name: string;
+            status: components["schemas"]["RunStatus"];
+            /** Dataset Name */
+            dataset_name: string;
+            /** Dataset Version */
+            dataset_version: number;
+            dataset_source: components["schemas"]["DatasetSource"];
+            /** Arms */
+            arms: string[];
+            /** Total */
+            total: number;
+            /** Completed */
+            completed: number;
+            /** Failed */
+            failed: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** RunLimits */
+        "RunLimits-Input": {
+            /**
+             * Max Cases
+             * @description First N cases
+             */
+            max_cases?: number | null;
+            /**
+             * Concurrency
+             * @description Cases evaluated in parallel
+             * @default 1
+             */
+            concurrency: number;
+        };
+        /** RunLimits */
+        "RunLimits-Output": {
+            /**
+             * Max Cases
+             * @description First N cases
+             */
+            max_cases: number | null;
+            /**
+             * Concurrency
+             * @description Cases evaluated in parallel
+             * @default 1
+             */
+            concurrency: number;
+        };
+        /**
+         * RunStatus
+         * @enum {string}
+         */
+        RunStatus: "queued" | "running" | "completed" | "partial" | "failed";
+        /**
          * SelectionDecision
          * @description One ranked candidate as the evidence stage judged it, selected or not.
          */
@@ -2764,6 +4146,23 @@ export interface components {
              * @description value * weight
              */
             contribution: number;
+        };
+        /** StatsMethod */
+        StatsMethod: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+            /** Confidence */
+            confidence: number;
+            /** Bootstrap Resamples */
+            bootstrap_resamples: number;
+            /** Seed */
+            seed: number;
+            /** Min Cases For Conclusion */
+            min_cases_for_conclusion: number;
+            /** Multiple Comparisons */
+            multiple_comparisons: string;
         };
         /**
          * SupportStatus
@@ -2941,79 +4340,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RagComponents"];
-                };
-            };
-        };
-    };
-    list_experiments_api_v1_experiments_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Experiment"][];
-                };
-            };
-        };
-    };
-    create_experiment_api_v1_experiments_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExperimentCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Experiment"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_runs_api_v1_runs_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExperimentRun"][];
                 };
             };
         };
@@ -3569,6 +4895,618 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DenseIndexView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overview_api_v1_arena_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArenaOverview"];
+                };
+            };
+        };
+    };
+    metric_definitions_api_v1_arena_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricDefinition"][];
+                };
+            };
+        };
+    };
+    arena_presets_api_v1_arena_presets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArenaPresets"];
+                };
+            };
+        };
+    };
+    list_datasets_api_v1_benchmarks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetSummary"][];
+                };
+            };
+        };
+    };
+    create_dataset_api_v1_benchmarks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BenchmarkDatasetCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchmarkDataset"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    install_development_api_v1_benchmarks_development_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchmarkDataset"];
+                };
+            };
+        };
+    };
+    get_dataset_api_v1_benchmarks__dataset_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchmarkDataset"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_configurations_api_v1_arena_configurations_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotImplementedDetail"];
+                };
+            };
+        };
+    };
+    list_experiments_api_v1_experiments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Experiment"][];
+                };
+            };
+        };
+    };
+    create_experiment_api_v1_experiments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExperimentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Experiment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotImplementedDetail"];
+                };
+            };
+        };
+    };
+    get_experiment_api_v1_experiments__experiment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Experiment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    experiment_runs_api_v1_experiments__experiment_id__runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperimentRun"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_run_api_v1_experiments__experiment_id__runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperimentRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_runs_api_v1_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunDigest"][];
+                };
+            };
+        };
+    };
+    get_run_api_v1_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperimentRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_cases_api_v1_runs__run_id__cases_get: {
+        parameters: {
+            query?: {
+                arm?: string | null;
+                status?: components["schemas"]["CaseStatus"] | null;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunCase"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    case_view_api_v1_runs__run_id__cases__case_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leaderboard_api_v1_runs__run_id__leaderboard_get: {
+        parameters: {
+            query?: {
+                metric?: string;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Leaderboard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_arms_api_v1_runs__run_id__compare_get: {
+        parameters: {
+            query: {
+                baseline: string;
+                variant: string;
+                metric?: string[] | null;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comparison"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_runs_api_v1_arena_compare_get: {
+        parameters: {
+            query: {
+                baseline_run: string;
+                baseline_arm: string;
+                variant_run: string;
+                variant_arm: string;
+                metric?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comparison"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    artifact_api_v1_artifacts__artifact_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artifact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArtifactTrace"];
                 };
             };
             /** @description Validation Error */

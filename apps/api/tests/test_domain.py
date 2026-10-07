@@ -3,17 +3,8 @@ import math
 import pytest
 from pydantic import ValidationError
 
-from rag_forge.domain.models import ContentOrigin, Metric, RAGConfiguration, RetrievalStrategy
+from rag_forge.domain.models import ContentOrigin, Metric
 from rag_forge.evaluation import retrieval_metrics as rm
-
-
-def test_config_hash_ignores_identity_but_tracks_behaviour() -> None:
-    a = RAGConfiguration(name="a", strategies=[RetrievalStrategy.DENSE], top_k=5)
-    b = RAGConfiguration(name="b", strategies=[RetrievalStrategy.DENSE], top_k=5)
-    c = RAGConfiguration(name="a", strategies=[RetrievalStrategy.DENSE], top_k=6)
-    assert a.id != b.id
-    assert a.config_hash() == b.config_hash()
-    assert a.config_hash() != c.config_hash()
 
 
 def test_models_are_immutable_and_strict() -> None:
