@@ -32,6 +32,7 @@ from rag_forge.domain.models import (
     RetrievalRequest,
     RetrievalStrategy,
     RouterParams,
+    RuntimeSnapshot,
     canonical_hash,
     new_id,
     utcnow,
@@ -501,6 +502,9 @@ class ExperimentRun(Model):
     metric_registry_version: str
     stats_method: str
     environment: EnvironmentSnapshot
+    runtime: RuntimeSnapshot | None = Field(
+        default=None, description="Runtime, lockfiles and model files; null before it was recorded"
+    )
     summaries: list[ArmSummary] = Field(default_factory=list)
     error: str | None = None
     created_at: datetime = Field(default_factory=utcnow)
@@ -514,6 +518,7 @@ class Artifact(Model):
     arm: str
     case_id: str
     kind: str = Field(description="rag_trace | retrieval_trace")
+    replay_id: str | None = Field(default=None, description="Set on traces recorded by a replay")
     media_type: str = "application/json"
     sha256: str
     bytes: int

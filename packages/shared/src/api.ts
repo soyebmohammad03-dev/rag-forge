@@ -671,6 +671,200 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runs/{run_id}/replayability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Replayability
+         * @description Each arm resolved again in this environment and compared with its recorded snapshot.
+         *     Executes nothing.
+         */
+        get: operations["replayability_api_v1_runs__run_id__replayability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/replays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Run Replays */
+        get: operations["run_replays_api_v1_runs__run_id__replays_get"];
+        put?: never;
+        /**
+         * Start Replay
+         * @description Re-execute recorded cases (default: all) and compare every stage hash and quality metric
+         *     with the recording. Poll GET /replays/{id}.
+         */
+        post: operations["start_replay_api_v1_runs__run_id__replays_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/replays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Replays */
+        get: operations["list_replays_api_v1_replays_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/replays/{replay_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Replay */
+        get: operations["get_replay_api_v1_replays__replay_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Manifest
+         * @description Machine-readable reproducibility manifest: commit, toolchain, lockfiles, models and their
+         *     file hashes, configuration hashes, seeds, metric and statistics versions, artifacts.
+         */
+        get: operations["run_manifest_api_v1_runs__run_id__manifest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/manifest.md": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Run Manifest Markdown */
+        get: operations["run_manifest_markdown_api_v1_runs__run_id__manifest_md_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/report.md": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Report
+         * @description Markdown research report: configurations, measured metrics, comparisons, per-case
+         *     results, failures, limitations and reproducibility. Measured, proxy and interpretive
+         *     content are labelled.
+         */
+        get: operations["run_report_api_v1_runs__run_id__report_md_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/export.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Export Json
+         * @description Experiment, run, dataset, every case result, comparisons and the manifest.
+         */
+        get: operations["run_export_json_api_v1_runs__run_id__export_json_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/export/metrics.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Run Metrics Csv */
+        get: operations["run_metrics_csv_api_v1_runs__run_id__export_metrics_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{run_id}/export/cases.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Cases Csv
+         * @description One row per case x arm x metric, failures and skips included.
+         */
+        get: operations["run_cases_csv_api_v1_runs__run_id__export_cases_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -834,6 +1028,32 @@ export interface components {
             /** Label */
             label: string;
         };
+        /** ArmReplayability */
+        ArmReplayability: {
+            /** Arm */
+            arm: string;
+            /** Recorded Hash */
+            recorded_hash: string;
+            /**
+             * Current Hash
+             * @description The arm resolved now; null if it cannot be
+             */
+            current_hash: string | null;
+            /** Replayable */
+            replayable: boolean;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Changes
+             * @description Recorded vs current snapshot differences
+             */
+            changes: components["schemas"]["ConfigChange"][];
+            /**
+             * Generation
+             * @description How reproducible generation is for this arm, in words; null without one
+             */
+            generation: string | null;
+        };
         /** ArmSummary */
         ArmSummary: {
             /** Arm */
@@ -869,6 +1089,24 @@ export interface components {
             artifact_id: string;
             /** Kind */
             kind: string;
+            /** Run Id */
+            run_id: string;
+            /** Arm */
+            arm: string;
+            /** Case Id */
+            case_id: string;
+            /**
+             * Replay Id
+             * @description Set when a replay recorded this trace
+             */
+            replay_id: string | null;
+            /** Sha256 */
+            sha256: string;
+            /**
+             * Stages
+             * @description The provenance chain: output and configuration hash of every stage
+             */
+            stages: components["schemas"]["PipelineStage"][];
             /** @description rag_trace artifacts */
             rag: components["schemas"]["RagResponse"] | null;
             /** @description retrieval_trace artifacts */
@@ -2207,6 +2445,8 @@ export interface components {
             /** Stats Method */
             stats_method: string;
             environment: components["schemas"]["EnvironmentSnapshot"];
+            /** @description Runtime, lockfiles and model files; null before it was recorded */
+            runtime: components["schemas"]["RuntimeSnapshot"] | null;
             /** Summaries */
             summaries: components["schemas"]["ArmSummary"][];
             /** Error */
@@ -2774,6 +3014,74 @@ export interface components {
             /** Mean Latency Ms */
             mean_latency_ms: number | null;
         };
+        /** ManifestArm */
+        ManifestArm: {
+            /** Arm */
+            arm: string;
+            /** Pipeline */
+            pipeline: string;
+            /** Config Hash */
+            config_hash: string;
+            /** Retrieval Mode */
+            retrieval_mode: string;
+            /**
+             * Retrieval Configuration Hash
+             * @description Manual arms
+             */
+            retrieval_configuration_hash: string | null;
+            /**
+             * Routing Hash
+             * @description Adaptive arms
+             */
+            routing_hash: string | null;
+            /** Query Analyzer */
+            query_analyzer: string | null;
+            /** Router Policy */
+            router_policy: string | null;
+            /** Evidence Params Hash */
+            evidence_params_hash: string | null;
+            /** Prompt Template */
+            prompt_template: string | null;
+            /** Prompt Template Hash */
+            prompt_template_hash: string | null;
+            /** Generator */
+            generator: string | null;
+            /** Generator Config Hash */
+            generator_config_hash: string | null;
+            /** Temperature */
+            temperature: number | null;
+            /** Seed */
+            seed: number | null;
+            /** Verifier */
+            verifier: string | null;
+            /** Verifier Config Hash */
+            verifier_config_hash: string | null;
+            /**
+             * Context Hashes
+             * @description Distinct context (prompt) hashes recorded
+             */
+            context_hashes: number;
+            /**
+             * Generation Deterministic
+             * @description As recorded by the generator; null without generation
+             */
+            generation_deterministic: boolean | null;
+        };
+        /** ManifestArtifact */
+        ManifestArtifact: {
+            /** Arm */
+            arm: string;
+            /** Case Id */
+            case_id: string;
+            /** Artifact Id */
+            artifact_id: string;
+            /** Kind */
+            kind: string;
+            /** Sha256 */
+            sha256: string;
+            /** Bytes */
+            bytes: number;
+        };
         /** Metric */
         Metric: {
             /** Name */
@@ -2821,6 +3129,15 @@ export interface components {
              * @description null for descriptive metrics
              */
             higher_is_better: boolean | null;
+        };
+        /** MetricDifference */
+        MetricDifference: {
+            /** Metric */
+            metric: string;
+            /** Recorded */
+            recorded: number | null;
+            /** Replayed */
+            replayed: number | null;
         };
         /**
          * MetricFamily
@@ -2910,6 +3227,44 @@ export interface components {
             detail: string | null;
             /** @default measured */
             origin: components["schemas"]["ContentOrigin"];
+        };
+        /** ModelFile */
+        ModelFile: {
+            /**
+             * Path
+             * @description File inside the model repository
+             */
+            path: string;
+            /**
+             * Sha256
+             * @description Content hash; null when the file is not cached
+             */
+            sha256: string | null;
+            /** Bytes */
+            bytes: number | null;
+            /**
+             * Source
+             * @description lfs-blob-id | computed | not-cached
+             */
+            source: string;
+        };
+        /** ModelRecord */
+        ModelRecord: {
+            /**
+             * Role
+             * @description embedder | reranker | generator | verifier-embedder
+             */
+            role: string;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Revision */
+            revision: string | null;
+            /** Config Hash */
+            config_hash: string | null;
+            /** Files */
+            files: components["schemas"]["ModelFile"][];
         };
         /** NotImplementedDetail */
         NotImplementedDetail: {
@@ -3274,6 +3629,157 @@ export interface components {
              * @description The case's grade for it; null if not judged
              */
             relevance: number | null;
+        };
+        /** Replay */
+        Replay: {
+            /** Id */
+            id: string;
+            /** Run Id */
+            run_id: string;
+            /** Experiment Id */
+            experiment_id: string;
+            /** @default queued */
+            status: components["schemas"]["ReplayStatus"];
+            /** Arms */
+            arms: string[];
+            /** Case Ids */
+            case_ids: string[];
+            /** Total */
+            total: number;
+            /**
+             * Completed
+             * @default 0
+             */
+            completed: number;
+            /** Checks */
+            checks: components["schemas"]["ArmReplayability"][];
+            /** Cases */
+            cases: components["schemas"]["ReplayCase"][];
+            /** Outcomes */
+            outcomes: {
+                [key: string]: number;
+            };
+            environment: components["schemas"]["EnvironmentSnapshot"];
+            runtime: components["schemas"]["RuntimeSnapshot"];
+            /** Error */
+            error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** ReplayCase */
+        ReplayCase: {
+            /** Arm */
+            arm: string;
+            /** Case Id */
+            case_id: string;
+            outcome: components["schemas"]["ReplayOutcome"];
+            /** Reason */
+            reason: string;
+            /** Recorded Status */
+            recorded_status: string;
+            /** Replayed Status */
+            replayed_status: string | null;
+            /** Stages */
+            stages: components["schemas"]["StageComparison"][];
+            /** First Divergence */
+            first_divergence: string | null;
+            /** Recorded Artifact Id */
+            recorded_artifact_id: string | null;
+            /** Replayed Artifact Id */
+            replayed_artifact_id: string | null;
+            /**
+             * Metrics Compared
+             * @description Quality metrics compared (timings excluded)
+             */
+            metrics_compared: number;
+            /** Metric Differences */
+            metric_differences: components["schemas"]["MetricDifference"][];
+            /** Latency Ms */
+            latency_ms: number | null;
+        };
+        /**
+         * ReplayOutcome
+         * @enum {string}
+         */
+        ReplayOutcome: "exact" | "equivalent" | "diverged" | "not_replayable";
+        /** ReplayRequest */
+        ReplayRequest: {
+            /**
+             * Arms
+             * @description Default: every arm
+             */
+            arms?: string[] | null;
+            /**
+             * Case Ids
+             * @description Default: every case
+             */
+            case_ids?: string[] | null;
+        };
+        /**
+         * ReplayStatus
+         * @enum {string}
+         */
+        ReplayStatus: "queued" | "running" | "completed" | "failed";
+        /** ReproducibilityManifest */
+        ReproducibilityManifest: {
+            /**
+             * Manifest Version
+             * @default rag-forge-manifest@1
+             */
+            manifest_version: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Run */
+            run: {
+                [key: string]: unknown;
+            };
+            /** Dataset */
+            dataset: {
+                [key: string]: unknown;
+            };
+            /** Arms */
+            arms: components["schemas"]["ManifestArm"][];
+            /** Models */
+            models: components["schemas"]["ModelRecord"][];
+            /** Seeds */
+            seeds: {
+                [key: string]: unknown;
+            };
+            /** Metrics */
+            metrics: {
+                [key: string]: unknown;
+            };
+            /** Statistics */
+            statistics: {
+                [key: string]: unknown;
+            };
+            /** @description Recorded when the run was created */
+            environment: components["schemas"]["EnvironmentSnapshot"];
+            /** @description Recorded when the run was created; null for runs recorded before it existed */
+            runtime: components["schemas"]["RuntimeSnapshot"] | null;
+            /**
+             * Current
+             * @description This process now, for comparison
+             */
+            current: {
+                [key: string]: unknown;
+            };
+            /** Artifacts */
+            artifacts: components["schemas"]["ManifestArtifact"][];
+            /** Replays */
+            replays: {
+                [key: string]: unknown;
+            }[];
+            /** Notes */
+            notes: string[];
         };
         /**
          * RerankCandidate
@@ -4087,6 +4593,57 @@ export interface components {
          */
         RunStatus: "queued" | "running" | "completed" | "partial" | "failed";
         /**
+         * RuntimeSnapshot
+         * @description What the API process ran on, beyond the Python environment. Never holds secrets.
+         */
+        RuntimeSnapshot: {
+            /**
+             * Git Commit
+             * @description HEAD when captured (not cached per process)
+             */
+            git_commit: string | null;
+            /**
+             * Node Version
+             * @description null when node is not on PATH
+             */
+            node_version: string | null;
+            /** Uv Version */
+            uv_version: string | null;
+            /**
+             * Git Dirty
+             * @description Uncommitted changes in the checkout
+             */
+            git_dirty: boolean | null;
+            /**
+             * Lockfiles
+             * @description Lockfile path -> sha256
+             */
+            lockfiles: {
+                [key: string]: string;
+            };
+            /**
+             * Packages
+             * @description Runtime-relevant Python packages
+             */
+            packages: {
+                [key: string]: string;
+            };
+            /**
+             * Settings
+             * @description RAG_FORGE_* settings; values of keys, tokens and secrets are redacted
+             */
+            settings: {
+                [key: string]: string;
+            };
+            /** Models */
+            models: components["schemas"]["ModelRecord"][];
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+        };
+        /**
          * SelectionDecision
          * @description One ranked candidate as the evidence stage judged it, selected or not.
          */
@@ -4146,6 +4703,22 @@ export interface components {
              * @description value * weight
              */
             contribution: number;
+        };
+        /** StageComparison */
+        StageComparison: {
+            /** Stage */
+            stage: string;
+            /** Deterministic */
+            deterministic: boolean;
+            /** Recorded */
+            recorded: string | null;
+            /** Replayed */
+            replayed: string | null;
+            /**
+             * Match
+             * @description null when the stage is absent on one side
+             */
+            match: boolean | null;
         };
         /** StatsMethod */
         StatsMethod: {
@@ -5507,6 +6080,350 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArtifactTrace"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replayability_api_v1_runs__run_id__replayability_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmReplayability"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_replays_api_v1_runs__run_id__replays_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Replay"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_replay_api_v1_runs__run_id__replays_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReplayRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Replay"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_replays_api_v1_replays_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Replay"][];
+                };
+            };
+        };
+    };
+    get_replay_api_v1_replays__replay_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                replay_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Replay"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_manifest_api_v1_runs__run_id__manifest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReproducibilityManifest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_manifest_markdown_api_v1_runs__run_id__manifest_md_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": unknown;
+                    "text/csv": unknown;
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_report_api_v1_runs__run_id__report_md_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": unknown;
+                    "text/csv": unknown;
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_export_json_api_v1_runs__run_id__export_json_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": unknown;
+                    "text/csv": unknown;
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_metrics_csv_api_v1_runs__run_id__export_metrics_csv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": unknown;
+                    "text/csv": unknown;
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_cases_csv_api_v1_runs__run_id__export_cases_csv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": unknown;
+                    "text/csv": unknown;
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

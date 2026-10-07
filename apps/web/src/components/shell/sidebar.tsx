@@ -46,11 +46,6 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                     )}
                     <Icon className={cn("relative size-4", active ? "text-signal" : "text-fg-subtle group-hover:text-fg-muted")} />
                     <span className="relative flex-1">{a.label}</span>
-                    {a.status === "planned" && (
-                      <span className="relative font-mono text-[9px] uppercase tracking-wider text-fg-subtle" title="Planned">
-                        soon
-                      </span>
-                    )}
                   </Link>
                 </li>
               );

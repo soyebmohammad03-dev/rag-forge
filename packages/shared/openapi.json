@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "RAG FORGE API",
-    "version": "0.1.0"
+    "version": "1.0.0"
   },
   "paths": {
     "/api/v1/health": {
@@ -1892,6 +1892,470 @@
           }
         }
       }
+    },
+    "/api/v1/runs/{run_id}/replayability": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Replayability",
+        "description": "Each arm resolved again in this environment and compared with its recorded snapshot.\nExecutes nothing.",
+        "operationId": "replayability_api_v1_runs__run_id__replayability_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ArmReplayability"
+                  },
+                  "title": "Response Replayability Api V1 Runs  Run Id  Replayability Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/replays": {
+      "post": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Start Replay",
+        "description": "Re-execute recorded cases (default: all) and compare every stage hash and quality metric\nwith the recording. Poll GET /replays/{id}.",
+        "operationId": "start_replay_api_v1_runs__run_id__replays_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReplayRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Replay"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Run Replays",
+        "operationId": "run_replays_api_v1_runs__run_id__replays_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Replay"
+                  },
+                  "title": "Response Run Replays Api V1 Runs  Run Id  Replays Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/replays": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "List Replays",
+        "operationId": "list_replays_api_v1_replays_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Replay"
+                  },
+                  "type": "array",
+                  "title": "Response List Replays Api V1 Replays Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/replays/{replay_id}": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Get Replay",
+        "operationId": "get_replay_api_v1_replays__replay_id__get",
+        "parameters": [
+          {
+            "name": "replay_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Replay Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Replay"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/manifest": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Run Manifest",
+        "description": "Machine-readable reproducibility manifest: commit, toolchain, lockfiles, models and their\nfile hashes, configuration hashes, seeds, metric and statistics versions, artifacts.",
+        "operationId": "run_manifest_api_v1_runs__run_id__manifest_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReproducibilityManifest"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/manifest.md": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Run Manifest Markdown",
+        "operationId": "run_manifest_markdown_api_v1_runs__run_id__manifest_md_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/markdown": {},
+              "text/csv": {},
+              "application/json": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/report.md": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Run Report",
+        "description": "Markdown research report: configurations, measured metrics, comparisons, per-case\nresults, failures, limitations and reproducibility. Measured, proxy and interpretive\ncontent are labelled.",
+        "operationId": "run_report_api_v1_runs__run_id__report_md_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/markdown": {},
+              "text/csv": {},
+              "application/json": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/export.json": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Run Export Json",
+        "description": "Experiment, run, dataset, every case result, comparisons and the manifest.",
+        "operationId": "run_export_json_api_v1_runs__run_id__export_json_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/markdown": {},
+              "text/csv": {},
+              "application/json": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/export/metrics.csv": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Run Metrics Csv",
+        "operationId": "run_metrics_csv_api_v1_runs__run_id__export_metrics_csv_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/markdown": {},
+              "text/csv": {},
+              "application/json": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{run_id}/export/cases.csv": {
+      "get": {
+        "tags": [
+          "arena"
+        ],
+        "summary": "Run Cases Csv",
+        "description": "One row per case x arm x metric, failures and skips included.",
+        "operationId": "run_cases_csv_api_v1_runs__run_id__export_cases_csv_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/markdown": {},
+              "text/csv": {},
+              "application/json": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2253,6 +2717,77 @@
         ],
         "title": "ArmRef"
       },
+      "ArmReplayability": {
+        "properties": {
+          "arm": {
+            "type": "string",
+            "title": "Arm"
+          },
+          "recorded_hash": {
+            "type": "string",
+            "title": "Recorded Hash"
+          },
+          "current_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Hash",
+            "description": "The arm resolved now; null if it cannot be"
+          },
+          "replayable": {
+            "type": "boolean",
+            "title": "Replayable"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigChange"
+            },
+            "type": "array",
+            "title": "Changes",
+            "description": "Recorded vs current snapshot differences"
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generation",
+            "description": "How reproducible generation is for this arm, in words; null without one"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "arm",
+          "recorded_hash",
+          "current_hash",
+          "replayable",
+          "reason",
+          "changes",
+          "generation"
+        ],
+        "title": "ArmReplayability"
+      },
       "ArmSummary": {
         "properties": {
           "arm": {
@@ -2331,6 +2866,42 @@
             "type": "string",
             "title": "Kind"
           },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "arm": {
+            "type": "string",
+            "title": "Arm"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "replay_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replay Id",
+            "description": "Set when a replay recorded this trace"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/PipelineStage"
+            },
+            "type": "array",
+            "title": "Stages",
+            "description": "The provenance chain: output and configuration hash of every stage"
+          },
           "rag": {
             "anyOf": [
               {
@@ -2358,6 +2929,12 @@
         "required": [
           "artifact_id",
           "kind",
+          "run_id",
+          "arm",
+          "case_id",
+          "replay_id",
+          "sha256",
+          "stages",
           "rag",
           "retrieval"
         ],
@@ -5264,6 +5841,17 @@
           "environment": {
             "$ref": "#/components/schemas/EnvironmentSnapshot"
           },
+          "runtime": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuntimeSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Runtime, lockfiles and model files; null before it was recorded"
+          },
           "summaries": {
             "items": {
               "$ref": "#/components/schemas/ArmSummary"
@@ -5333,6 +5921,7 @@
           "metric_registry_version",
           "stats_method",
           "environment",
+          "runtime",
           "summaries",
           "error",
           "created_at",
@@ -6674,6 +7263,251 @@
         ],
         "title": "LeaderboardRow"
       },
+      "ManifestArm": {
+        "properties": {
+          "arm": {
+            "type": "string",
+            "title": "Arm"
+          },
+          "pipeline": {
+            "type": "string",
+            "title": "Pipeline"
+          },
+          "config_hash": {
+            "type": "string",
+            "title": "Config Hash"
+          },
+          "retrieval_mode": {
+            "type": "string",
+            "title": "Retrieval Mode"
+          },
+          "retrieval_configuration_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieval Configuration Hash",
+            "description": "Manual arms"
+          },
+          "routing_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Hash",
+            "description": "Adaptive arms"
+          },
+          "query_analyzer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query Analyzer"
+          },
+          "router_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Router Policy"
+          },
+          "evidence_params_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Params Hash"
+          },
+          "prompt_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Template"
+          },
+          "prompt_template_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Template Hash"
+          },
+          "generator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generator"
+          },
+          "generator_config_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generator Config Hash"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "verifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier"
+          },
+          "verifier_config_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Config Hash"
+          },
+          "context_hashes": {
+            "type": "integer",
+            "title": "Context Hashes",
+            "description": "Distinct context (prompt) hashes recorded"
+          },
+          "generation_deterministic": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generation Deterministic",
+            "description": "As recorded by the generator; null without generation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "arm",
+          "pipeline",
+          "config_hash",
+          "retrieval_mode",
+          "retrieval_configuration_hash",
+          "routing_hash",
+          "query_analyzer",
+          "router_policy",
+          "evidence_params_hash",
+          "prompt_template",
+          "prompt_template_hash",
+          "generator",
+          "generator_config_hash",
+          "temperature",
+          "seed",
+          "verifier",
+          "verifier_config_hash",
+          "context_hashes",
+          "generation_deterministic"
+        ],
+        "title": "ManifestArm"
+      },
+      "ManifestArtifact": {
+        "properties": {
+          "arm": {
+            "type": "string",
+            "title": "Arm"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "artifact_id": {
+            "type": "string",
+            "title": "Artifact Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "bytes": {
+            "type": "integer",
+            "title": "Bytes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "arm",
+          "case_id",
+          "artifact_id",
+          "kind",
+          "sha256",
+          "bytes"
+        ],
+        "title": "ManifestArtifact"
+      },
       "Metric": {
         "properties": {
           "name": {
@@ -6785,6 +7619,44 @@
           "higher_is_better"
         ],
         "title": "MetricDefinition"
+      },
+      "MetricDifference": {
+        "properties": {
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "recorded": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded"
+          },
+          "replayed": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replayed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metric",
+          "recorded",
+          "replayed"
+        ],
+        "title": "MetricDifference"
       },
       "MetricFamily": {
         "type": "string",
@@ -7073,6 +7945,109 @@
           "origin"
         ],
         "title": "MetricValue"
+      },
+      "ModelFile": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "description": "File inside the model repository"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256",
+            "description": "Content hash; null when the file is not cached"
+          },
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "lfs-blob-id | computed | not-cached"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "path",
+          "sha256",
+          "bytes",
+          "source"
+        ],
+        "title": "ModelFile"
+      },
+      "ModelRecord": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "description": "embedder | reranker | generator | verifier-embedder"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "config_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Hash"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ModelFile"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "role",
+          "provider",
+          "model",
+          "revision",
+          "config_hash",
+          "files"
+        ],
+        "title": "ModelRecord"
       },
       "NotImplementedDetail": {
         "properties": {
@@ -8089,6 +9064,416 @@
           "relevance"
         ],
         "title": "RankedItem"
+      },
+      "Replay": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "experiment_id": {
+            "type": "string",
+            "title": "Experiment Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReplayStatus",
+            "default": "queued"
+          },
+          "arms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Arms"
+          },
+          "case_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Case Ids"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed",
+            "default": 0
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/ArmReplayability"
+            },
+            "type": "array",
+            "title": "Checks"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayCase"
+            },
+            "type": "array",
+            "title": "Cases"
+          },
+          "outcomes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/ReplayOutcome"
+            },
+            "type": "object",
+            "title": "Outcomes"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/EnvironmentSnapshot"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/RuntimeSnapshot"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "run_id",
+          "experiment_id",
+          "status",
+          "arms",
+          "case_ids",
+          "total",
+          "completed",
+          "checks",
+          "cases",
+          "outcomes",
+          "environment",
+          "runtime",
+          "error",
+          "created_at",
+          "finished_at"
+        ],
+        "title": "Replay"
+      },
+      "ReplayCase": {
+        "properties": {
+          "arm": {
+            "type": "string",
+            "title": "Arm"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ReplayOutcome"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "recorded_status": {
+            "type": "string",
+            "title": "Recorded Status"
+          },
+          "replayed_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replayed Status"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageComparison"
+            },
+            "type": "array",
+            "title": "Stages"
+          },
+          "first_divergence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Divergence"
+          },
+          "recorded_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded Artifact Id"
+          },
+          "replayed_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replayed Artifact Id"
+          },
+          "metrics_compared": {
+            "type": "integer",
+            "title": "Metrics Compared",
+            "description": "Quality metrics compared (timings excluded)"
+          },
+          "metric_differences": {
+            "items": {
+              "$ref": "#/components/schemas/MetricDifference"
+            },
+            "type": "array",
+            "title": "Metric Differences"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "arm",
+          "case_id",
+          "outcome",
+          "reason",
+          "recorded_status",
+          "replayed_status",
+          "stages",
+          "first_divergence",
+          "recorded_artifact_id",
+          "replayed_artifact_id",
+          "metrics_compared",
+          "metric_differences",
+          "latency_ms"
+        ],
+        "title": "ReplayCase"
+      },
+      "ReplayOutcome": {
+        "type": "string",
+        "enum": [
+          "exact",
+          "equivalent",
+          "diverged",
+          "not_replayable"
+        ],
+        "title": "ReplayOutcome"
+      },
+      "ReplayRequest": {
+        "properties": {
+          "arms": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arms",
+            "description": "Default: every arm"
+          },
+          "case_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Ids",
+            "description": "Default: every case"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ReplayRequest"
+      },
+      "ReplayStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed"
+        ],
+        "title": "ReplayStatus"
+      },
+      "ReproducibilityManifest": {
+        "properties": {
+          "manifest_version": {
+            "type": "string",
+            "title": "Manifest Version",
+            "default": "rag-forge-manifest@1"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "run": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Run"
+          },
+          "dataset": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Dataset"
+          },
+          "arms": {
+            "items": {
+              "$ref": "#/components/schemas/ManifestArm"
+            },
+            "type": "array",
+            "title": "Arms"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelRecord"
+            },
+            "type": "array",
+            "title": "Models"
+          },
+          "seeds": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Seeds"
+          },
+          "metrics": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metrics"
+          },
+          "statistics": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Statistics"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/EnvironmentSnapshot",
+            "description": "Recorded when the run was created"
+          },
+          "runtime": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuntimeSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Recorded when the run was created; null for runs recorded before it existed"
+          },
+          "current": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Current",
+            "description": "This process now, for comparison"
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/ManifestArtifact"
+            },
+            "type": "array",
+            "title": "Artifacts"
+          },
+          "replays": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Replays"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "manifest_version",
+          "generated_at",
+          "run",
+          "dataset",
+          "arms",
+          "models",
+          "seeds",
+          "metrics",
+          "statistics",
+          "environment",
+          "runtime",
+          "current",
+          "artifacts",
+          "replays",
+          "notes"
+        ],
+        "title": "ReproducibilityManifest"
       },
       "RerankCandidate": {
         "properties": {
@@ -9964,6 +11349,108 @@
         ],
         "title": "RunStatus"
       },
+      "RuntimeSnapshot": {
+        "properties": {
+          "git_commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Git Commit",
+            "description": "HEAD when captured (not cached per process)"
+          },
+          "node_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Version",
+            "description": "null when node is not on PATH"
+          },
+          "uv_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uv Version"
+          },
+          "git_dirty": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Git Dirty",
+            "description": "Uncommitted changes in the checkout"
+          },
+          "lockfiles": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Lockfiles",
+            "description": "Lockfile path -> sha256"
+          },
+          "packages": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Packages",
+            "description": "Runtime-relevant Python packages"
+          },
+          "settings": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Settings",
+            "description": "RAG_FORGE_* settings; values of keys, tokens and secrets are redacted"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelRecord"
+            },
+            "type": "array",
+            "title": "Models"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "git_commit",
+          "node_version",
+          "uv_version",
+          "git_dirty",
+          "lockfiles",
+          "packages",
+          "settings",
+          "models",
+          "captured_at"
+        ],
+        "title": "RuntimeSnapshot",
+        "description": "What the API process ran on, beyond the Python environment. Never holds secrets."
+      },
       "SelectionDecision": {
         "properties": {
           "chunk_id": {
@@ -10102,6 +11589,62 @@
           "contribution"
         ],
         "title": "SignalContribution"
+      },
+      "StageComparison": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "deterministic": {
+            "type": "boolean",
+            "title": "Deterministic"
+          },
+          "recorded": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded"
+          },
+          "replayed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replayed"
+          },
+          "match": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match",
+            "description": "null when the stage is absent on one side"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "stage",
+          "deterministic",
+          "recorded",
+          "replayed",
+          "match"
+        ],
+        "title": "StageComparison"
       },
       "StatsMethod": {
         "properties": {

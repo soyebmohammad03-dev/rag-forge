@@ -193,14 +193,9 @@ class RagService:
         )
 
 
-def _chain(
-    retrieval: RetrievalResponse,
-    params: EvidenceParams,
-    selection: EvidenceSelection,
-    context: GenerationContext | None,
-    context_ms: float | None,
-    answer: GeneratedAnswer | None,
-) -> list[PipelineStage]:
+def retrieval_stages(retrieval: RetrievalResponse) -> list[PipelineStage]:
+    """The provenance chain up to the final ranking: query, (analysis, routing), retrieval,
+    (reranking). Replay recomputes it for retrieval-only traces, so both use this function."""
     prov = retrieval.provenance
     stages = [
         PipelineStage(
@@ -265,6 +260,18 @@ def _chain(
                 detail=f"{rr.info.spec.model}: {rr.candidates_scored} candidates scored",
             )
         )
+    return stages
+
+
+def _chain(
+    retrieval: RetrievalResponse,
+    params: EvidenceParams,
+    selection: EvidenceSelection,
+    context: GenerationContext | None,
+    context_ms: float | None,
+    answer: GeneratedAnswer | None,
+) -> list[PipelineStage]:
+    stages = retrieval_stages(retrieval)
     stages.append(
         PipelineStage(
             stage="evidence_selection",

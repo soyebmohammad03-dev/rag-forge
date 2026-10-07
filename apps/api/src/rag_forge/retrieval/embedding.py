@@ -47,7 +47,7 @@ class _Loaded:
     info: EmbedderInfo
 
 
-_FILES = (
+MODEL_FILES = (
     "modules.json",
     "1_Pooling/config.json",
     "sentence_bert_config.json",
@@ -78,7 +78,7 @@ class OnnxSentenceEmbedder:
                 f: Path(
                     hf_hub_download(spec.model, f, revision=spec.revision, cache_dir=self.cache_dir)
                 )
-                for f in _FILES
+                for f in MODEL_FILES
             }
         except Exception as exc:  # network, auth, missing file or revision
             raise EmbedderUnavailableError(

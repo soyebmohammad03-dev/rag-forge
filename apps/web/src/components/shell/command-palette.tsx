@@ -49,7 +49,6 @@ export function CommandPalette({
                 value={a.label}
                 keywords={[a.group]}
                 icon={<a.icon className="size-4" />}
-                hint={a.status === "planned" ? "planned" : undefined}
                 onSelect={() => run(() => router.push(areaHref(a)))}
               >
                 {a.label}

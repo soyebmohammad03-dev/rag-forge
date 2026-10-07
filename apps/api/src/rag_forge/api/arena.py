@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
 
 from rag_forge.api.schemas import NotImplementedDetail
-from rag_forge.arena import metrics, presets, stats
+from rag_forge.arena import metrics, presets, reports, stats
 from rag_forge.arena.config import factors, snapshot_diff
 from rag_forge.arena.datasets import DatasetValidationError
 from rag_forge.arena.engine import ArenaEngine, ArenaNotFoundError, RunNotFinishedError
+from rag_forge.arena.replay import ReplayService, stages_of
 from rag_forge.domain.arena import (
     AblationSpec,
     Arm,
@@ -37,7 +39,13 @@ from rag_forge.domain.arena import (
     RunStatus,
     StatsMethod,
 )
-from rag_forge.domain.models import RagResponse, RetrievalResponse
+from rag_forge.domain.models import PipelineStage, RagResponse, RetrievalResponse
+from rag_forge.domain.replay import (
+    ArmReplayability,
+    Replay,
+    ReplayRequest,
+    ReproducibilityManifest,
+)
 from rag_forge.ingestion.service import CorpusNotFoundError
 from rag_forge.rag.service import RagComponentNotAvailableError
 from rag_forge.retrieval.service import RerankerNotAvailableError, StrategyNotAvailableError
@@ -390,6 +398,14 @@ def compare_runs(
 class ArtifactTrace(BaseModel):
     artifact_id: str
     kind: str
+    run_id: str
+    arm: str
+    case_id: str
+    replay_id: str | None = Field(description="Set when a replay recorded this trace")
+    sha256: str
+    stages: list[PipelineStage] = Field(
+        description="The provenance chain: output and configuration hash of every stage"
+    )
     rag: RagResponse | None = Field(description="rag_trace artifacts")
     retrieval: RetrievalResponse | None = Field(description="retrieval_trace artifacts")
 
@@ -398,15 +414,130 @@ class ArtifactTrace(BaseModel):
 def artifact(artifact_id: str, request: Request, response: Response) -> ArtifactTrace:
     """The full pipeline trace recorded for one case of one arm."""
     with _errors():
-        kind, body = _engine(request).trace(artifact_id)
+        art, body = _engine(request).trace(artifact_id)
     response.headers["Cache-Control"] = "private, max-age=31536000, immutable"
-    if kind == "rag_trace":
-        return ArtifactTrace(
-            artifact_id=artifact_id, kind=kind, rag=RagResponse.model_validate(body), retrieval=None
-        )
+    rag = art.kind == "rag_trace"
+    trace = RagResponse.model_validate(body) if rag else RetrievalResponse.model_validate(body)
     return ArtifactTrace(
         artifact_id=artifact_id,
-        kind=kind,
-        rag=None,
-        retrieval=RetrievalResponse.model_validate(body),
+        kind=art.kind,
+        run_id=art.run_id,
+        arm=art.arm,
+        case_id=art.case_id,
+        replay_id=art.replay_id,
+        sha256=art.sha256,
+        stages=stages_of(trace),
+        rag=trace if isinstance(trace, RagResponse) else None,
+        retrieval=trace if isinstance(trace, RetrievalResponse) else None,
     )
+
+
+# --- replay, reproducibility and exports --------------------------------------------------------
+
+
+def _replays(request: Request) -> ReplayService:
+    service: ReplayService = request.app.state.replay
+    return service
+
+
+@router.get("/runs/{run_id}/replayability", response_model=list[ArmReplayability])
+def replayability(run_id: str, request: Request) -> list[ArmReplayability]:
+    """Each arm resolved again in this environment and compared with its recorded snapshot.
+    Executes nothing."""
+    with _errors():
+        return _replays(request).checks(_engine(request).get_run(run_id))
+
+
+@router.post("/runs/{run_id}/replays", response_model=Replay, status_code=status.HTTP_202_ACCEPTED)
+def start_replay(
+    run_id: str,
+    request: Request,
+    background: BackgroundTasks,
+    body: ReplayRequest | None = None,
+) -> Replay:
+    """Re-execute recorded cases (default: all) and compare every stage hash and quality metric
+    with the recording. Poll GET /replays/{id}."""
+    service = _replays(request)
+    with _errors():
+        replay = service.create(run_id, body or ReplayRequest())
+    background.add_task(service.run, replay.id)
+    return replay
+
+
+@router.get("/runs/{run_id}/replays", response_model=list[Replay])
+def run_replays(run_id: str, request: Request) -> list[Replay]:
+    with _errors():
+        _engine(request).get_run(run_id)
+    return _engine(request).arena.list_replays(run_id)
+
+
+@router.get("/replays", response_model=list[Replay])
+def list_replays(request: Request) -> list[Replay]:
+    return _engine(request).arena.list_replays()
+
+
+@router.get("/replays/{replay_id}", response_model=Replay)
+def get_replay(replay_id: str, request: Request) -> Replay:
+    with _errors():
+        return _replays(request).get(replay_id)
+
+
+@router.get("/runs/{run_id}/manifest", response_model=ReproducibilityManifest)
+def run_manifest(run_id: str, request: Request) -> ReproducibilityManifest:
+    """Machine-readable reproducibility manifest: commit, toolchain, lockfiles, models and their
+    file hashes, configuration hashes, seeds, metric and statistics versions, artifacts."""
+    with _errors():
+        return reports.manifest(_engine(request), run_id)
+
+
+def _download(content: str, media_type: str, filename: str) -> Response:
+    return Response(
+        content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+TEXT: dict[int | str, dict[str, Any]] = {
+    200: {"content": {"text/markdown": {}, "text/csv": {}, "application/json": {}}}
+}
+
+
+@router.get("/runs/{run_id}/manifest.md", response_class=Response, responses=TEXT)
+def run_manifest_markdown(run_id: str, request: Request) -> Response:
+    with _errors():
+        text = reports.manifest_markdown(reports.manifest(_engine(request), run_id))
+    return _download(text, "text/markdown; charset=utf-8", f"{run_id}-manifest.md")
+
+
+@router.get("/runs/{run_id}/report.md", response_class=Response, responses=TEXT)
+def run_report(run_id: str, request: Request) -> Response:
+    """Markdown research report: configurations, measured metrics, comparisons, per-case
+    results, failures, limitations and reproducibility. Measured, proxy and interpretive
+    content are labelled."""
+    with _errors():
+        text = reports.report_markdown(_engine(request), run_id)
+    return _download(text, "text/markdown; charset=utf-8", f"{run_id}-report.md")
+
+
+@router.get("/runs/{run_id}/export.json", response_class=Response, responses=TEXT)
+def run_export_json(run_id: str, request: Request) -> Response:
+    """Experiment, run, dataset, every case result, comparisons and the manifest."""
+    with _errors():
+        data = reports.export_json(_engine(request), run_id)
+    return _download(json.dumps(data, indent=2), "application/json", f"{run_id}.json")
+
+
+@router.get("/runs/{run_id}/export/metrics.csv", response_class=Response, responses=TEXT)
+def run_metrics_csv(run_id: str, request: Request) -> Response:
+    with _errors():
+        text = reports.metrics_csv(_engine(request), run_id)
+    return _download(text, "text/csv; charset=utf-8", f"{run_id}-metrics.csv")
+
+
+@router.get("/runs/{run_id}/export/cases.csv", response_class=Response, responses=TEXT)
+def run_cases_csv(run_id: str, request: Request) -> Response:
+    """One row per case x arm x metric, failures and skips included."""
+    with _errors():
+        text = reports.cases_csv(_engine(request), run_id)
+    return _download(text, "text/csv; charset=utf-8", f"{run_id}-cases.csv")

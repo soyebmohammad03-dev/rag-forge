@@ -7,6 +7,7 @@ on:
 
 jobs:
   api:
+    name: Backend (format, lint, strict mypy, tests)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -20,12 +21,17 @@ jobs:
           path: ~/.cache/huggingface
           key: hf-${{ hashFiles('apps/api/src/rag_forge/domain/models.py') }}
       - run: uv sync --locked
-      - run: uv run ruff format --check src tests
-      - run: uv run ruff check src tests
-      - run: uv run mypy src tests
-      - run: uv run pytest -q
+      - name: Format
+        run: uv run ruff format --check src tests
+      - name: Lint
+        run: uv run ruff check src tests
+      - name: Type check (strict)
+        run: uv run mypy src tests
+      - name: Tests (real pinned models, engine not mocked)
+        run: uv run pytest -q
 
   web:
+    name: Frontend (API contracts, lint, typecheck, tests, build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,4 +44,5 @@ jobs:
       - run: cd apps/api && uv sync --locked
       - name: API contracts are up to date
         run: npm run contracts && git diff --exit-code packages/shared
-      - run: npm run check
+      - name: Lint, typecheck, tests, production build
+        run: npm run check

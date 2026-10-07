@@ -1,6 +1,5 @@
 import {
   Activity,
-  Anvil,
   Database,
   FlaskConical,
   GitBranch,
@@ -8,72 +7,54 @@ import {
   LayoutDashboard,
   type LucideIcon,
   Microscope,
-  Network,
   ScanSearch,
   Swords,
   TrendingUp,
 } from "lucide-react";
-
-export type AreaStatus = "live" | "planned";
 
 export interface Area {
   slug: string; // "" = overview
   label: string;
   group: string;
   icon: LucideIcon;
-  status: AreaStatus;
   summary: string;
-  /** What this area will let a researcher do. Shown on planned areas. */
-  capabilities?: string[];
-  /** Existing API contracts the area builds on. */
-  contracts?: string[];
 }
 
+/** Every area of the app. Each is built and talks to the real API. */
 export const AREAS: Area[] = [
   {
     slug: "",
     label: "Overview",
     group: "Workspace",
     icon: LayoutDashboard,
-    status: "live",
-    summary: "System state, recent experiments and retrieval activity at a glance.",
+    summary: "The implemented pipeline, models, corpora, experiments and reproducibility state.",
   },
   {
-    slug: "forge",
-    label: "Forge",
-    group: "Workspace",
-    icon: Anvil,
-    status: "planned",
-    summary: "Compose a RAG configuration stage by stage and run it against a corpus.",
-    capabilities: [
-      "Pick chunker, embedding model, retrievers, reranker and generator",
-      "See the configuration hash that identifies every run it produces",
-      "Run single queries with full retrieval traces",
-    ],
-    contracts: ["ConfigurationSnapshot", "POST /api/v1/retrieval/search"],
-  },
-  {
-    slug: "router",
-    label: "Router",
-    group: "Retrieval",
-    icon: GitBranch,
-    status: "live",
-    summary: "Analyse a query, inspect the router's rule trace and compare its choice with fixed strategies.",
+    slug: "corpus",
+    label: "Corpus",
+    group: "Data",
+    icon: Database,
+    summary: "Versioned corpora: ingestion, documents, version history and chunk inspection.",
   },
   {
     slug: "retrieval",
     label: "Retrieval Lab",
     group: "Retrieval",
     icon: ScanSearch,
-    status: "live",
     summary: "Query a corpus version with BM25, dense, hybrid, reranking or the router; inspect evidence and provenance.",
+  },
+  {
+    slug: "router",
+    label: "Router",
+    group: "Retrieval",
+    icon: GitBranch,
+    summary: "Analyse a query, inspect the router's rule trace and compare its choice with fixed strategies.",
   },
   {
     slug: "evidence",
     label: "Evidence Lab",
     group: "Retrieval",
     icon: Microscope,
-    status: "live",
     summary: "Generate an answer from selected evidence only and trace every claim to the passages that support it.",
   },
   {
@@ -81,7 +62,6 @@ export const AREAS: Area[] = [
     label: "Arena",
     group: "Evaluate",
     icon: Swords,
-    status: "live",
     summary: "Benchmark datasets, controlled runs of several configurations and paired statistics, with provenance.",
   },
   {
@@ -89,7 +69,6 @@ export const AREAS: Area[] = [
     label: "Experiments",
     group: "Evaluate",
     icon: FlaskConical,
-    status: "live",
     summary: "Build an experiment: dataset, configuration matrix, ablations, metrics and limits; then run it.",
   },
   {
@@ -97,7 +76,6 @@ export const AREAS: Area[] = [
     label: "Results",
     group: "Evaluate",
     icon: TrendingUp,
-    status: "live",
     summary: "Leaderboards, statistical comparisons, per-case results, failures and latency of recorded runs.",
   },
   {
@@ -105,35 +83,13 @@ export const AREAS: Area[] = [
     label: "Replay",
     group: "Evaluate",
     icon: History,
-    status: "planned",
-    summary: "Reconstruct a past run from its recorded configuration and provenance.",
-    capabilities: ["Re-execute with pinned versions", "Diff a replay against the original"],
-    contracts: ["ProvenanceRecord", "GET /api/v1/provenance/environment"],
-  },
-  {
-    slug: "corpus",
-    label: "Corpus",
-    group: "Data",
-    icon: Database,
-    status: "live",
-    summary: "Versioned corpora: ingestion, documents, version history and chunk inspection.",
-  },
-  {
-    slug: "knowledge",
-    label: "Knowledge",
-    group: "Data",
-    icon: Network,
-    status: "planned",
-    summary: "Explore documents, chunks, entities, claims and their relationships.",
-    capabilities: ["Entity and relation graph", "Chunk neighbourhoods", "Graph-retrieval paths"],
-    contracts: ["Chunk", "Claim"],
+    summary: "Inspect a recorded run as an audit trail, replay it stage by stage and export its report and manifest.",
   },
   {
     slug: "system",
     label: "System",
     group: "Operate",
     icon: Activity,
-    status: "live",
     summary: "Component health and the environment recorded into every run's provenance.",
   },
 ];

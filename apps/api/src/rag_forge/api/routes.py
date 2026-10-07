@@ -27,6 +27,7 @@ from rag_forge.domain.models import (
     Metric,
     RetrievalMode,
     RetrievalRequest,
+    RouterParams,
 )
 from rag_forge.evaluation import retrieval_metrics as rm
 from rag_forge.ingestion.service import CorpusNotFoundError
@@ -62,10 +63,14 @@ def health(request: Request) -> HealthStatus:
             detail=f"{store.kind}: {getattr(store, 'path', '')}",
         ),
         ComponentHealth(
-            name="vector_index", state=ComponentState.NOT_CONFIGURED, detail="no index backend"
+            name="vector_index",
+            state=ComponentState.OK,
+            detail="sqlite: exact cosine search, one index per corpus version and embedder",
         ),
-        _generator_health(request.app.state.rag),
+        _embedder_health(request.app.state.retrieval),
         _reranker_health(request.app.state.reranker),
+        _router_health(request.app.state.retrieval),
+        _generator_health(request.app.state.rag),
     ]
     healthy = all(c.state != ComponentState.ERROR for c in components)
     return HealthStatus(
@@ -74,6 +79,29 @@ def health(request: Request) -> HealthStatus:
         started_at=started_at,
         uptime_seconds=(datetime.now(UTC) - started_at).total_seconds(),
         components=components,
+    )
+
+
+def _embedder_health(retrieval: RetrievalService) -> ComponentHealth:
+    """Configured, not loaded: health never triggers a model download."""
+    spec = retrieval.embedder
+    if spec is None:
+        return ComponentHealth(
+            name="embedder", state=ComponentState.NOT_CONFIGURED, detail="no embedder"
+        )
+    return ComponentHealth(
+        name="embedder", state=ComponentState.OK, detail=f"{spec.model}@{spec.revision[:8]}"
+    )
+
+
+def _router_health(retrieval: RetrievalService) -> ComponentHealth:
+    if retrieval.router is None:
+        return ComponentHealth(
+            name="router", state=ComponentState.NOT_CONFIGURED, detail="no adaptive router"
+        )
+    i = retrieval.router.identity(RouterParams())
+    return ComponentHealth(
+        name="router", state=ComponentState.OK, detail=f"{i.analyzer_version} + {i.policy_version}"
     )
 
 

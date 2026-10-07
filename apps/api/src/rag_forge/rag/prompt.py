@@ -1,10 +1,10 @@
 """The grounded prompt contract: versioned, rendered deterministically, recorded verbatim.
 
 The wording was chosen by trying variants against the default 0.5B model on in-corpus and
-out-of-corpus questions (docs/rag.md). Longer rule lists and few-shot examples made that model
-copy the examples or abstain on answerable questions. This template kept its answers inside the
-evidence and made it abstain when the evidence lacked the answer. It still rarely writes
-citations, and the grounding report measures that rather than hiding it.
+out-of-corpus questions (docs/grounding/generation.md). Longer rule lists and few-shot examples
+made that model copy the examples or abstain on answerable questions. This template kept its
+answers inside the evidence and made it abstain when the evidence lacked the answer. It still
+rarely writes citations, and the grounding report measures that rather than hiding it.
 """
 
 from __future__ import annotations

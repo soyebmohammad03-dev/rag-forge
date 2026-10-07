@@ -6,7 +6,7 @@ def test_health_reports_components_honestly(client: TestClient) -> None:
     assert body["status"] == "ok"
     states = {c["name"]: c["state"] for c in body["components"]}
     assert states["api"] == "ok"
-    assert states["vector_index"] == "not_configured"
+    assert states["vector_index"] == states["embedder"] == states["router"] == "ok"
     assert states["llm_provider"] == "ok"  # configured; loaded lazily on the first answer
 
 
@@ -45,5 +45,5 @@ def test_evaluation_rejects_empty_judgements(client: TestClient) -> None:
 
 def test_environment_snapshot(client: TestClient) -> None:
     env = client.get("/api/v1/provenance/environment").json()["environment"]
-    assert env["rag_forge_version"] == "0.1.0"
+    assert env["rag_forge_version"] == "1.0.0"
     assert "fastapi" in env["packages"]

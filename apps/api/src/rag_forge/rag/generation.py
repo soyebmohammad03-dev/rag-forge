@@ -113,7 +113,7 @@ class _LoadedLM:
     info: GeneratorInfo
 
 
-_LM_FILES = ("config.json", "tokenizer.json", "tokenizer_config.json")
+LM_FILES = ("config.json", "tokenizer.json", "tokenizer_config.json")
 
 
 def _sample(logits: NDArray[np.float32], params: GenerationParams, rng: np.random.Generator) -> int:
@@ -185,7 +185,7 @@ class OnnxCausalLM:
 
     def _load_files(self, tok: Tokenizer) -> _LoadedLM:
         spec = self.spec
-        paths = {f: self._fetch(f) for f in (*_LM_FILES, spec.weights_file)}
+        paths = {f: self._fetch(f) for f in (*LM_FILES, spec.weights_file)}
         config = json.loads(paths["config.json"].read_text())
         template = json.loads(paths["tokenizer_config.json"].read_text()).get("chat_template", "")
         _, start_marker, end_marker = CHAT_TEMPLATES[spec.chat_template]

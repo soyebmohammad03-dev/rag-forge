@@ -20,7 +20,7 @@ baseline without touching generation or presentation.
 It measures overlap of terms and meaning, not entailment. It cannot establish contradiction,
 so it never emits "contradicted": a claim no passage supports is "unsupported", which says
 nothing about whether the claim is false. Thresholds were calibrated on a handful of
-hand-built pairs (docs/rag.md), not learned, and are recorded in every report.
+hand-built pairs (docs/grounding/README.md), not learned, and are recorded in every report.
 """
 
 from __future__ import annotations

@@ -28,6 +28,13 @@ data/*
 experiments/*
 !experiments/README.md
 
+# never commit model weights or databases (models live in the Hugging Face cache)
+*.onnx
+*.onnx_data
+*.safetensors
+*.sqlite3
+*.sqlite3-*
+
 # local tooling
 .DS_Store
 .claude/

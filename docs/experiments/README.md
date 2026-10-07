@@ -2,19 +2,24 @@
 
 Code: `apps/api/src/rag_forge/arena/` (`datasets.py`, `metrics.py`, `stats.py`, `config.py`,
 `presets.py`, `engine.py`), models in `domain/arena.py`, persistence in `storage/arena.py`
-(migration 4 in `storage/sqlite.py`), HTTP in `api/arena.py`. UI: `apps/web/src/features/arena/`
-(`/arena`, `/experiments`, `/results`).
+(migrations 4-5 in `storage/sqlite.py`), HTTP in `api/arena.py`. UI: `apps/web/src/features/arena/`
+(`/arena`, `/experiments`, `/results`) and `features/replay/` (`/replay`).
 
-```
-versioned dataset ─▶ arms ─▶ configuration snapshots (hashed) ─▶ experiment
-                                                                    │
-                     run: every case × every arm, partial failures kept
-                                                                    │
-       RunCase (ranking, evidence, answer, grounding, timings, models, artifact, metrics)
-                                                                    │
-         arm summaries (mean, median, std, bootstrap CI, skipped, failures)
-                                                                    │
-           leaderboard (descriptive) · paired comparison (per-case differences)
+## C. Experiment architecture
+
+```mermaid
+flowchart LR
+  DS["BenchmarkDataset<br/>versioned · corpus-pinned"] --> EXP
+  ARMS["Arms<br/>retrieval / RAG templates"] --> RES["resolve"] --> SNAP["ConfigurationSnapshot<br/>per arm, hashed"] --> EXP["Experiment<br/>+ ablations (measured factors)"]
+  EXP --> RUN["ExperimentRun<br/>environment · runtime · limits"]
+  RUN --> EXE["execute case × arm<br/>RetrievalService / RagService"]
+  EXE --> RC["RunCase<br/>ranking · evidence · answer · grounding<br/>timings · models · metrics"]
+  EXE --> ART[("Artifact<br/>full trace, sha256")]
+  RC --> SUM["ArmSummary<br/>mean · median · std · bootstrap CI · skips · failures"]
+  SUM --> LB["Leaderboard<br/>(descriptive)"]
+  RC --> CMP["PairedComparison<br/>differences · CI · dz · sign test · Holm"]
+  RC & ART --> RPL["Replay<br/>stage-hash comparison"]
+  SUM & CMP --> REP["report.md · export.json · CSV · manifest"]
 ```
 
 The Arena reuses the engine unchanged: retrieval arms call `RetrievalService.retrieve`, RAG arms
@@ -59,70 +64,11 @@ copied from the relevant document. The annotation notes say so on the dataset it
 every retrieval arm reaches nDCG@10 ≥ 0.97, so differences are mostly ceiling effects. Every
 comparison on it carries a warning saying exactly this.
 
-## Metrics
+## Configurations, metrics and statistics
 
-`GET /api/v1/arena/metrics` returns each `MetricDefinition`: family, version, description,
-required annotations, required pipeline outputs, whether it is reported per k, unit, aggregation
-and direction (`higher_is_better`, `null` for descriptive metrics). Registry: `arena-metrics@1`.
-
-| Family | Metric | Needs | Notes |
-|---|---|---|---|
-| retrieval | `recall@k`, `precision@k`, `hit_rate@k`, `mrr`, `ndcg@k` | relevance | Document level unless chunks are judged; chunk rankings collapse to documents at their first rank. nDCG uses gain `2^grade − 1`, discount `log2(rank + 1)` |
-| reranking | `rerank_mrr_delta`, `rerank_ndcg_delta@k` | relevance, reranking | Same candidate pool before and after the cross-encoder |
-| reranking | `recall_preservation@k` | relevance, reranking | Share of relevant pool items the reranker keeps in the final top k |
-| reranking | `rerank_promoted_share`, `rerank_mean_shift` | reranking | Rank movement; descriptive |
-| evidence | `evidence_recall` | expected evidence | Share of expected documents kept by evidence selection |
-| evidence | `grounding_score`, `supported_claim_rate`, `unsupported_claim_rate`, `citation_coverage`, `citation_precision`, `evidence_coverage` | generation | As measured by the Phase 7 verifier: support by the supplied evidence, not truth |
-| generation | `answer_token_f1` | reference answer | SQuAD-normalised token F1: a lexical proxy |
-| generation | `abstention_accuracy` | answerable | Answered an answerable case / declined an unanswerable one |
-| operational | `latency_ms`, `retrieval_ms`, `generation_ms`, `grounding_ms` | — | Wall time on this machine; generation and grounding exclude model load |
-| operational | `prompt_tokens`, `completion_tokens` | generation | Descriptive |
-| operational | `failed` | — | 1 if the case failed; its mean is the failure rate |
-
-**Missing ground truth is skipped, never zero.** A metric whose annotations or outputs are
-absent returns `value: null` with a `skipped` reason ("no relevance judgements for this case",
-"retrieval-only arm", "the arm does not rerank", …). Aggregates report `n` (defined) and
-`skipped` separately, and each arm summary keeps one reason per skipped metric. A failed case
-carries only `failed = 1`; it is not scored 0 on quality metrics.
-
-**Measured versus subjective quality.** No metric here judges whether an answer is good.
-Grounding metrics measure support by the evidence the generator saw; `answer_token_f1` and
-`abstention_accuracy` are automatic proxies against annotations. There is no LLM-as-judge.
-
-## Configurations
-
-An `Arm` is one configuration under test: a name, a pipeline (`retrieval` or `rag`), a
-`RetrievalTemplate` (a retrieval request without query and corpus version: strategy, top-k, BM25,
-hybrid, rerank, manual or adaptive mode, router), and for RAG arms evidence, generation and
-grounding parameters.
-
-At experiment creation each arm is resolved into an immutable `ConfigurationSnapshot`: dataset
-id, version and hash; corpus version and chunking hash; the resolved retrieval configuration
-(manual arms) or analyzer and router policy versions plus routing hash (adaptive arms); embedder
-and reranker specs with revisions; evidence parameters; prompt template; generator identity
-(name, provider, model, revision, config hash) and effective generation parameters; verifier
-and its config hash; metric settings and metric versions; engine version (`arena-engine@1`).
-Components that are not registered fail creation with 501 rather than at run time.
-
-`config_hash` is the SHA-256 of the canonical snapshot excluding the arm's name, so two arms
-with different names and identical behaviour have the same hash. Every `RunCase` stores it.
-
-`GET /api/v1/arena/presets` lists templates (BM25, Dense, Hybrid RRF, Hybrid weighted, Adaptive,
-three reranked arms, grounded RAG with the extractive baseline or the local model) and suggested
-ablations. They are templates: nothing runs by default.
-
-## Ablations
-
-An `AblationSpec` names a baseline arm, a variant arm and the factor the researcher intends to
-vary. The engine records:
-
-- `factors`: the arm settings that actually differ (`retrieval.strategy`, `retrieval.rerank`,
-  `generation`, `pipeline`, …);
-- `single_factor`: whether exactly one differs;
-- `changes`: every resolved snapshot field that differs, with both values.
-
-A multi-factor ablation is kept and flagged as confounded, never silently relabelled. Identical
-arms are rejected ("nothing varies").
+- [Experiment configuration](configuration.md): arms, snapshots, presets and ablations.
+- [Metrics](metrics.md): the registry, requirements and skip semantics.
+- [Statistical methodology](statistics.md): summaries, paired comparisons and conclusions.
 
 ## Runs
 
@@ -138,35 +84,9 @@ arms are rejected ("nothing varies").
   (some failures, all recorded) or `failed` (the run itself could not proceed).
 
 Each run records dataset hash, corpus version, case ids, arms, snapshot hashes, limits, the
-metric registry version, the statistics method and an `EnvironmentSnapshot`.
-
-## Statistics (`paired-bootstrap-sign@1`)
-
-Per arm and metric: n, skipped, mean, median, sample std, min, max and a 95% percentile bootstrap
-CI of the mean (5000 resamples, seed 20261007, so recomputing gives identical intervals).
-
-Paired comparison of two arms (`/runs/{id}/compare`, or `/arena/compare` across runs) uses only
-cases where both arms define the metric:
-
-- per-case differences (variant − baseline), mean, median, std, bootstrap CI of the mean
-  difference, effect size `dz` = mean / sd of differences;
-- wins / losses / ties oriented by the metric's direction;
-- exact two-sided sign test (ties dropped), Holm-adjusted across the metrics of the comparison;
-- a conclusion: `insufficient_cases` below 10 pairs, `descriptive_only` for directionless
-  metrics, otherwise `variant_higher` / `variant_lower` when the CI excludes 0, else
-  `no_detectable_difference`.
-
-"Higher" describes the value; the UI resolves whether that is better from the metric's direction.
-A conclusion is a statement about this dataset, never a general claim.
-
-Incomparable arms are refused (`comparable: false`, with reasons) when a run is unfinished, or
-the dataset content, corpus version, metric versions or k values differ, or no case was
-evaluated by both. Warnings are added for differing case sets, failed cases, differing top-k or
-evidence budgets (budget confounds), identical configurations, and the development dataset.
-
-The leaderboard (`/runs/{id}/leaderboard?metric=`) orders arms by mean, gives tied means the same
-position, gives no position to descriptive or undefined metrics, and marks arms whose CI overlaps
-the leader's. It is descriptive; decisions use paired comparisons.
+metric registry version, the statistics method, an `EnvironmentSnapshot` and a `RuntimeSnapshot`
+(commit, toolchain, lockfiles, settings with secrets redacted, model files with hashes). See
+[reproducibility](../reproducibility/README.md).
 
 ## Provenance: what produced this number?
 
@@ -196,7 +116,11 @@ method and environment.
 | GET | `/api/v1/runs/{id}/leaderboard?metric=` | Descriptive ordering |
 | GET | `/api/v1/runs/{id}/compare?baseline=&variant=` | Paired comparison within a run |
 | GET | `/api/v1/arena/compare` | Paired comparison across runs |
-| GET | `/api/v1/artifacts/{id}` | The full trace behind one case of one arm |
+| GET | `/api/v1/artifacts/{id}` | The full trace behind one case of one arm, with its stage chain |
+
+Replay, manifests and exports (`/runs/{id}/replays`, `/manifest`, `/report.md`, `/export.json`,
+`/export/*.csv`) are described in [reproducibility](../reproducibility/README.md) and
+[replay](../reproducibility/replay.md).
 
 The retrieval, router and answer endpoints are unchanged. The earlier placeholder
 `GET/POST /api/v1/experiments` and `GET /api/v1/runs` (storage-only records around a
@@ -219,6 +143,10 @@ models by their Arena counterparts.
   skips, timings and the trace link for two arms side by side), failures and skip reasons,
   latency distributions (p50/p95 by stage), configuration snapshots and ablation factors.
 
+`/replay` inspects a finished run as an audit trail: run metadata and environment, every stage of
+any case × arm with its hashes, determinism and replay availability, models with file hashes, the
+replay history with per-case outcomes, the results views, and the exports.
+
 Every chart draws recorded values only; empty states say nothing has been measured.
 
 ## Limits and what is not here
@@ -229,5 +157,5 @@ Every chart draws recorded values only; empty states say nothing has been measur
 - The development benchmark is too small and too easy to rank methods; there is no importer for
   public benchmarks yet (`external` is reserved).
 - No LLM-as-judge, no human evaluation interface, no cost model.
-- **Phase 9** handles replay of past runs from their provenance, final reproducibility tooling,
-  report and publication export, and final presentation. None of that is implemented here.
+
+See [known limitations](../limitations.md) for the whole platform.

@@ -31,6 +31,7 @@ from rag_forge.domain.arena import (
     Arm,
     ArmRef,
     ArmSummary,
+    Artifact,
     BenchmarkCase,
     BenchmarkDataset,
     BenchmarkDatasetCreate,
@@ -56,6 +57,9 @@ from rag_forge.domain.models import (
     ChunkingConfig,
     Corpus,
     DenseIndexState,
+    EmbedderSpec,
+    GeneratorSpec,
+    ModelRecord,
     RagRequest,
     RagResponse,
     RetrievalResponse,
@@ -63,8 +67,12 @@ from rag_forge.domain.models import (
 )
 from rag_forge.ingestion.service import CorpusNotFoundError, IngestionService
 from rag_forge.provenance.environment import capture_environment
+from rag_forge.provenance.runtime import capture_runtime, model_files
+from rag_forge.rag.generation import LM_FILES
 from rag_forge.rag.service import RagService
 from rag_forge.retrieval.dense import DenseIndexService
+from rag_forge.retrieval.embedding import MODEL_FILES as EMBEDDER_FILES
+from rag_forge.retrieval.rerank import MODEL_FILES as RERANKER_FILES
 from rag_forge.retrieval.service import RetrievalService
 from rag_forge.storage.arena import ArenaStore
 from rag_forge.storage.base import CorpusStore
@@ -219,8 +227,48 @@ class ArenaEngine:
                 metric_registry_version=metrics.REGISTRY_VERSION,
                 stats_method=stats.METHOD_ID,
                 environment=capture_environment(),
+                runtime=capture_runtime(self.model_records(e.snapshots)),
             )
         )
+
+    def model_records(self, snapshots: list[ConfigurationSnapshot]) -> list[ModelRecord]:
+        """Every model the snapshots name, with the exact cached files (no downloads)."""
+        out: dict[tuple[str, str], ModelRecord] = {}
+
+        def add(role: str, provider: str, model: str, rev: str | None, cfg: str | None,
+                files: list[str]) -> None:  # fmt: skip
+            if (role, model) not in out:
+                out[(role, model)] = ModelRecord(
+                    role=role,
+                    provider=provider,
+                    model=model,
+                    revision=rev,
+                    config_hash=cfg,
+                    files=model_files(model, rev, files),
+                )
+
+        for s in snapshots:
+            if s.embedder:
+                emb = s.embedder
+                add("embedder", emb.provider, emb.model, emb.revision, emb.config_hash(),
+                    list(EMBEDDER_FILES))  # fmt: skip
+            if s.reranker:
+                rr = s.reranker
+                add("reranker", rr.provider, rr.model, rr.revision, rr.config_hash(),
+                    list(RERANKER_FILES))  # fmt: skip
+            if s.generator:
+                g = s.generator
+                spec = getattr(self.rag.generators.get(g.name), "spec", None)
+                files = [*LM_FILES, spec.weights_file] if isinstance(spec, GeneratorSpec) else []
+                add("generator", g.provider, g.model, g.revision, g.config_hash, files)
+            if s.verifier:
+                name = s.verifier.split("@")[0]
+                v = next((v for v in self.rag.verifiers.values() if v.name == name), None)
+                vspec = getattr(getattr(v, "embedder", None), "spec", None)
+                if isinstance(vspec, EmbedderSpec):
+                    add("verifier-embedder", vspec.provider, vspec.model, vspec.revision,
+                        vspec.config_hash(), list(EMBEDDER_FILES))  # fmt: skip
+        return list(out.values())
 
     def run(self, run_id: str) -> ExperimentRun:
         run = self.get_run(run_id)
@@ -277,8 +325,31 @@ class ArenaEngine:
             raise ArenaNotFoundError(f"no run {run_id}")
         return run
 
+    def execute(
+        self, e: Experiment, arm: Arm, case: BenchmarkCase
+    ) -> tuple[RetrievalResponse, RagResponse | None]:
+        """Run one case through one arm on the pinned corpus version, with the loaded models."""
+        request = arm.retrieval.request(case.query, e.corpus_version)
+        if arm.pipeline is PipelineKind.RAG:
+            rag = self.rag.answer(
+                e.corpus_id,
+                RagRequest(
+                    retrieval=request,
+                    evidence=arm.evidence_params(),
+                    generation=arm.generation,
+                    grounding=arm.grounding,
+                ),
+            )
+            return rag.retrieval, rag
+        return self.retrieval.retrieve(e.corpus_id, request), None
+
     def _evaluate(
-        self, run: ExperimentRun, e: Experiment, arm: Arm, case: BenchmarkCase
+        self,
+        run: ExperimentRun,
+        e: Experiment,
+        arm: Arm,
+        case: BenchmarkCase,
+        replay_id: str | None = None,
     ) -> RunCase:
         started_at, started = utcnow(), time.perf_counter()
         base = {
@@ -290,23 +361,9 @@ class ArenaEngine:
             "started_at": started_at,
         }
         try:
-            request = arm.retrieval.request(case.query, e.corpus_version)
-            rag: RagResponse | None = None
-            if arm.pipeline is PipelineKind.RAG:
-                rag = self.rag.answer(
-                    e.corpus_id,
-                    RagRequest(
-                        retrieval=request,
-                        evidence=arm.evidence_params(),
-                        generation=arm.generation,
-                        grounding=arm.grounding,
-                    ),
-                )
-                response = rag.retrieval
-            else:
-                response = self.retrieval.retrieve(e.corpus_id, request)
+            response, rag = self.execute(e, arm, case)
             total = round((time.perf_counter() - started) * 1000, 3)
-            return self._record(base, e, arm, case, response, rag, total)
+            return self._record(base, e, arm, case, response, rag, total, replay_id)
         except Exception as exc:  # a failed case is a result: kept, typed and explained
             return RunCase(
                 **base,
@@ -328,6 +385,7 @@ class ArenaEngine:
         response: RetrievalResponse,
         rag: RagResponse | None,
         total: float,
+        replay_id: str | None = None,
     ) -> RunCase:
         unit, rel = judgements(case)
 
@@ -419,7 +477,12 @@ class ArenaEngine:
         )
         body = (rag or response).model_dump_json().encode()
         artifact = self.arena.add_artifact(
-            str(base["run_id"]), arm.name, case.id, "rag_trace" if rag else "retrieval_trace", body
+            str(base["run_id"]),
+            arm.name,
+            case.id,
+            "rag_trace" if rag else "retrieval_trace",
+            body,
+            replay_id,
         )
         return RunCase(
             **base,
@@ -675,12 +738,12 @@ class ArenaEngine:
                     out[cid] = m.value
         return out
 
-    def trace(self, artifact_id: str) -> tuple[str, dict[str, object]]:
+    def trace(self, artifact_id: str) -> tuple[Artifact, dict[str, object]]:
         found = self.arena.get_artifact(artifact_id)
         if found is None:
             raise ArenaNotFoundError(f"no artifact {artifact_id}")
         art, body = found
-        return art.kind, json.loads(body)
+        return art, json.loads(body)
 
     def dense_ready(self, corpus_id: str, version: int) -> bool:
         state, _ = self.dense.state(self._corpus(corpus_id), version)

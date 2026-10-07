@@ -63,3 +63,5 @@ export const fetchRuns = () => api.GET("/api/v1/runs");
 export const fetchCorpora = () => api.GET("/api/v1/corpora");
 export const fetchFormats = () => api.GET("/api/v1/ingestion/formats");
 export const fetchRagComponents = () => api.GET("/api/v1/rag/components");
+export const fetchArenaOverview = () => api.GET("/api/v1/arena/overview");
+export const fetchReplays = () => api.GET("/api/v1/replays");

@@ -1198,13 +1198,35 @@ class EnvironmentSnapshot(Model):
     packages: dict[str, str]
 
 
-class ProvenanceRecord(Model):
-    id: str = Field(default_factory=lambda: new_id("prv"))
-    run_id: str
-    config_hash: str
-    corpus_id: str | None = None
-    corpus_version: int | None = None
-    dataset_version: str | None = None
-    retrieved_chunk_ids: list[str] = Field(default_factory=list)
-    environment: EnvironmentSnapshot
-    created_at: datetime = Field(default_factory=utcnow)
+class ModelFile(Model):
+    path: str = Field(description="File inside the model repository")
+    sha256: str | None = Field(description="Content hash; null when the file is not cached")
+    bytes: int | None
+    source: str = Field(description="lfs-blob-id | computed | not-cached")
+
+
+class ModelRecord(Model):
+    role: str = Field(description="embedder | reranker | generator | verifier-embedder")
+    provider: str
+    model: str
+    revision: str | None
+    config_hash: str | None
+    files: list[ModelFile]
+
+
+class RuntimeSnapshot(Model):
+    """What the API process ran on, beyond the Python environment. Never holds secrets."""
+
+    git_commit: str | None = Field(
+        default=None, description="HEAD when captured (not cached per process)"
+    )
+    node_version: str | None = Field(description="null when node is not on PATH")
+    uv_version: str | None
+    git_dirty: bool | None = Field(description="Uncommitted changes in the checkout")
+    lockfiles: dict[str, str] = Field(description="Lockfile path -> sha256")
+    packages: dict[str, str] = Field(description="Runtime-relevant Python packages")
+    settings: dict[str, str] = Field(
+        description="RAG_FORGE_* settings; values of keys, tokens and secrets are redacted"
+    )
+    models: list[ModelRecord]
+    captured_at: datetime = Field(default_factory=utcnow)

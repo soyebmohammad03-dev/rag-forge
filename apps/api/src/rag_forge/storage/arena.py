@@ -1,4 +1,4 @@
-"""Persistence for the Arena, in the same SQLite database as corpora (schema migration 4).
+"""Persistence for the Arena, in the same SQLite database as corpora (schema migrations 4-5).
 
 Rows hold the models as JSON. Full per-case traces are content-addressed blobs referenced by
 `Artifact`s, so identical traces are stored once.
@@ -13,6 +13,7 @@ from rag_forge.domain.arena import (
     ExperimentRun,
     RunCase,
 )
+from rag_forge.domain.replay import Replay
 from rag_forge.storage.blobs import BlobStore
 from rag_forge.storage.sqlite import SqliteStore
 
@@ -125,13 +126,22 @@ class ArenaStore:
 
     # --- artifacts --------------------------------------------------------------------
 
-    def add_artifact(self, run_id: str, arm: str, case_id: str, kind: str, body: bytes) -> Artifact:
+    def add_artifact(
+        self,
+        run_id: str,
+        arm: str,
+        case_id: str,
+        kind: str,
+        body: bytes,
+        replay_id: str | None = None,
+    ) -> Artifact:
         digest = self.blobs.put(body)
         art = Artifact(
             run_id=run_id,
             arm=arm,
             case_id=case_id,
             kind=kind,
+            replay_id=replay_id,
             sha256=digest,
             bytes=len(body),
             uri=f"blob:sha256:{digest}",
@@ -152,3 +162,38 @@ class ArenaStore:
             return None
         art = Artifact.model_validate_json(row[0])
         return art, self.blobs.get(art.sha256)
+
+    def run_artifacts(self, run_id: str) -> list[Artifact]:
+        """Every trace recorded for a run, including those recorded by its replays."""
+        with self.db.transaction() as db:
+            rows = db.execute(
+                "SELECT data FROM arena_artifacts WHERE run_id = ?", (run_id,)
+            ).fetchall()
+        return [Artifact.model_validate_json(r[0]) for r in rows]
+
+    # --- replays ----------------------------------------------------------------------
+
+    def save_replay(self, replay: Replay) -> Replay:
+        with self.db.transaction() as db:
+            db.execute(
+                "INSERT INTO arena_replays VALUES (?, ?, ?, ?) "
+                "ON CONFLICT (id) DO UPDATE SET data = excluded.data",
+                (replay.id, replay.run_id, replay.created_at.isoformat(), replay.model_dump_json()),
+            )
+        return replay
+
+    def get_replay(self, replay_id: str) -> Replay | None:
+        with self.db.transaction() as db:
+            row = db.execute("SELECT data FROM arena_replays WHERE id = ?", (replay_id,)).fetchone()
+        return Replay.model_validate_json(row[0]) if row else None
+
+    def list_replays(self, run_id: str | None = None) -> list[Replay]:
+        with self.db.transaction() as db:
+            if run_id is None:
+                rows = db.execute("SELECT data FROM arena_replays ORDER BY created_at DESC")
+            else:
+                rows = db.execute(
+                    "SELECT data FROM arena_replays WHERE run_id = ? ORDER BY created_at DESC",
+                    (run_id,),
+                )
+            return [Replay.model_validate_json(r[0]) for r in rows.fetchall()]

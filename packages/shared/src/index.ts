@@ -136,3 +136,15 @@ export type ResolveResponse = Schemas["ResolveResponse"];
 export type RunCase = Schemas["RunCase"];
 export type RunStatus = Schemas["RunStatus"];
 export type StatsMethod = Schemas["StatsMethod"];
+
+// Replay and reproducibility
+export type Replay = Schemas["Replay"];
+export type ReplayCase = Schemas["ReplayCase"];
+export type ReplayOutcome = Schemas["ReplayOutcome"];
+export type ReplayStatus = Schemas["ReplayStatus"];
+export type StageComparison = Schemas["StageComparison"];
+export type ArmReplayability = Schemas["ArmReplayability"];
+export type ReproducibilityManifest = Schemas["ReproducibilityManifest"];
+export type ManifestArm = Schemas["ManifestArm"];
+export type ModelRecord = Schemas["ModelRecord"];
+export type RuntimeSnapshot = Schemas["RuntimeSnapshot"];

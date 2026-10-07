@@ -131,6 +131,14 @@ CREATE TRIGGER {t}_no_delete BEFORE DELETE ON {t}
   BEGIN SELECT RAISE(ABORT, '{t} is append-only'); END;"""
         for t in ("benchmark_datasets", "arena_experiments", "arena_run_cases", "arena_artifacts")
     ),
+    5: """
+-- Replays of recorded runs. A replay row is updated only while it progresses; its traces are
+-- arena_artifacts rows (append-only) that name the replay.
+CREATE TABLE arena_replays (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES arena_runs(id),
+  created_at TEXT NOT NULL, data TEXT NOT NULL);
+CREATE INDEX arena_replays_run ON arena_replays (run_id, created_at);
+""",
 }
 SCHEMA_VERSION = max(MIGRATIONS)
 

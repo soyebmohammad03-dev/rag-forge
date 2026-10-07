@@ -1,7 +1,8 @@
 "use client";
 
 import type { ArmSummary, CaseView, Comparison, Experiment, ExperimentRun, Leaderboard, MetricFamily, RunCase } from "@rag-forge/shared";
-import { AlertTriangle, ExternalLink, FlaskConical } from "lucide-react";
+import { AlertTriangle, ExternalLink, FlaskConical, History } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { Badge, OriginBadge } from "@/components/ui/badge";
 import { Panel, PanelHeader } from "@/components/ui/panel";
@@ -71,7 +72,13 @@ function RunHeader({ run, exp }: { run: ExperimentRun; exp: Experiment }) {
       <PanelHeader
         eyebrow={`Run ${run.id}`}
         title={exp.name}
-        actions={<><OriginBadge origin="measured" /><StatusIndicator status={RUN_STATUS[run.status]} label={run.status} /></>}
+        actions={
+          <>
+            {finished(run) && <Link href={`/replay?run=${run.id}`} className="inline-flex items-center gap-1 text-xs text-trace hover:underline"><History className="size-3.5" /> Inspect, replay &amp; export</Link>}
+            <OriginBadge origin="measured" />
+            <StatusIndicator status={RUN_STATUS[run.status]} label={run.status} />
+          </>
+        }
       />
       <div className="grid gap-4 p-4 lg:grid-cols-[1fr_auto]">
         <div className="space-y-2 text-[12px] leading-relaxed text-fg-muted">
@@ -258,7 +265,11 @@ function ComparisonResult({ runId, baseline, variant }: { runId: string; baselin
   const [focus, setFocus] = useState<string | null>(null);
   if (!cmp.data) return <Panel>{cmp.error ? <ErrorState title="Could not compare">{cmp.error}</ErrorState> : <LoadingState rows={6} label="Bootstrapping" />}</Panel>;
   const c: Comparison = cmp.data;
-  const focused = c.metrics.find((m) => m.metric === focus) ?? c.metrics.find((m) => m.n_pairs > 0 && m.higher_is_better !== null) ?? c.metrics[0];
+  const focused =
+    c.metrics.find((m) => m.metric === focus) ??
+    c.metrics.find((m) => m.conclusion === "variant_higher" || m.conclusion === "variant_lower") ??
+    c.metrics.find((m) => m.n_pairs > 0 && m.higher_is_better !== null && m.metric !== "failed") ??
+    c.metrics[0];
   return (
     <div className="space-y-5">
       {(c.issues.length > 0 || c.warnings.length > 0) && (
@@ -290,22 +301,22 @@ function ComparisonResult({ runId, baseline, variant }: { runId: string; baselin
       {!c.comparable ? (
         <Panel><EmptyState icon={AlertTriangle} title="Not comparable">No paired statistics are computed for these arms.</EmptyState></Panel>
       ) : (
-        <div className="grid items-start gap-5 xl:grid-cols-[1fr_440px]">
-          <Panel>
+        <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_400px]">
+          <Panel className="min-w-0">
             <PanelHeader eyebrow={`${c.method.name}@${c.method.version} · ${Math.round(c.method.confidence * 100)}% · ${c.method.bootstrap_resamples} resamples`} title="Paired differences (variant − baseline)" />
             <div className="overflow-x-auto">
               <table className="w-full text-left text-[12px]">
                 <thead className="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
                   <tr className="border-b border-line">
                     <th className="px-4 py-2 font-normal">metric</th>
-                    <th className="text-right font-normal">n</th>
-                    <th className="text-right font-normal">baseline</th>
-                    <th className="text-right font-normal">variant</th>
-                    <th className="text-right font-normal">Δ mean [CI]</th>
-                    <th className="text-right font-normal">dz</th>
-                    <th className="text-right font-normal">W/L/T</th>
-                    <th className="text-right font-normal">sign p (Holm)</th>
-                    <th className="px-4 font-normal">reading</th>
+                    <th className="pl-3 text-right font-normal">n</th>
+                    <th className="pl-3 text-right font-normal">baseline</th>
+                    <th className="pl-3 text-right font-normal">variant</th>
+                    <th className="pl-3 text-right font-normal">Δ mean [CI]</th>
+                    <th className="pl-3 text-right font-normal">dz</th>
+                    <th className="pl-3 text-right font-normal">W/L/T</th>
+                    <th className="pl-3 text-right font-normal">sign p (Holm)</th>
+                    <th className="px-4 pl-5 font-normal">reading</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -314,14 +325,14 @@ function ComparisonResult({ runId, baseline, variant }: { runId: string; baselin
                     return (
                       <tr key={m.metric} onClick={() => setFocus(m.metric)} className={`cursor-pointer border-b border-line/60 last:border-0 hover:bg-surface-2 ${focused?.metric === m.metric ? "bg-surface-2" : ""}`}>
                         <td className="px-4 py-1.5 font-mono text-[11px]">{m.metric}</td>
-                        <td className="num text-right">{m.n_pairs}</td>
-                        <td className="num text-right text-fg-muted">{fmt(m.baseline_mean, m.metric)}</td>
-                        <td className="num text-right text-fg-muted">{fmt(m.variant_mean, m.metric)}</td>
-                        <td className="num whitespace-nowrap text-right">{signed(m.mean_difference, m.metric)}{m.ci_low != null && <span className="text-fg-subtle"> [{signed(m.ci_low, m.metric)}, {signed(m.ci_high, m.metric)}]</span>}</td>
-                        <td className="num text-right text-fg-muted">{m.effect_size_dz != null ? m.effect_size_dz.toFixed(2) : "—"}</td>
-                        <td className="num text-right text-fg-muted">{m.higher_is_better === null ? "—" : `${m.wins}/${m.losses}/${m.ties}`}</td>
-                        <td className="num whitespace-nowrap text-right text-fg-muted">{m.sign_test_p != null ? `${m.sign_test_p.toFixed(3)} (${m.holm_p?.toFixed(3) ?? "—"})` : "—"}</td>
-                        <td className="px-4"><Badge tone={v.tone} title={v.help}>{v.label}</Badge></td>
+                        <td className="num pl-3 text-right">{m.n_pairs}</td>
+                        <td className="num whitespace-nowrap pl-3 text-right text-fg-muted">{fmt(m.baseline_mean, m.metric)}</td>
+                        <td className="num whitespace-nowrap pl-3 text-right text-fg-muted">{fmt(m.variant_mean, m.metric)}</td>
+                        <td className="num whitespace-nowrap pl-3 text-right">{signed(m.mean_difference, m.metric)}{m.ci_low != null && <span className="text-fg-subtle"> [{signed(m.ci_low, m.metric)}, {signed(m.ci_high, m.metric)}]</span>}</td>
+                        <td className="num pl-3 text-right text-fg-muted">{m.effect_size_dz != null ? m.effect_size_dz.toFixed(2) : "—"}</td>
+                        <td className="num pl-3 text-right text-fg-muted">{m.higher_is_better === null ? "—" : `${m.wins}/${m.losses}/${m.ties}`}</td>
+                        <td className="num whitespace-nowrap pl-3 text-right text-fg-muted">{m.sign_test_p != null ? `${m.sign_test_p.toFixed(3)} (${m.holm_p?.toFixed(3) ?? "—"})` : "—"}</td>
+                        <td className="px-4 pl-5"><Badge tone={v.tone} title={v.help}>{v.label}</Badge></td>
                       </tr>
                     );
                   })}
@@ -336,7 +347,7 @@ function ComparisonResult({ runId, baseline, variant }: { runId: string; baselin
           {focused && (
             <Panel>
               <PanelHeader eyebrow="Per case" title={`${focused.metric}: ${focused.n_pairs} paired cases`} />
-              <div className="p-4">
+              <div className="max-w-2xl p-4">
                 {focused.differences.length ? (
                   <DiffPlot differences={focused.differences} higherIsBetter={focused.higher_is_better} format={(v) => fmt(v, focused.metric)} />
                 ) : (

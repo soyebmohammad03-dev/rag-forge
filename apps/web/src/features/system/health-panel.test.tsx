@@ -5,11 +5,11 @@ import { HealthPanel, formatUptime } from "./health-panel";
 
 const health: HealthStatus = {
   status: "ok",
-  version: "0.1.0",
+  version: "1.0.0",
   started_at: "2026-09-30T00:00:00Z",
   uptime_seconds: 125,
   components: [
-    { name: "api", state: "ok", detail: "rag-forge 0.1.0" },
+    { name: "api", state: "ok", detail: "rag-forge 1.0.0" },
     { name: "vector_index", state: "not_configured", detail: "no index backend" },
   ],
 };

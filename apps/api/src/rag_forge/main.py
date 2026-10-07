@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from rag_forge import __version__
 from rag_forge.api import arena, corpus, routes
 from rag_forge.arena.engine import ArenaEngine
+from rag_forge.arena.replay import ReplayService
 from rag_forge.domain.models import (
     Corpus,
     DenseIndexState,
@@ -157,6 +158,7 @@ def create_app(
         app.state.rag,
         dense,
     )
+    app.state.replay = ReplayService(app.state.arena)
     app.state.started_at = datetime.now(UTC)
     origins = os.environ.get("RAG_FORGE_CORS_ORIGINS", "http://localhost:3000").split(",")
     app.add_middleware(

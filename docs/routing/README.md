@@ -175,7 +175,8 @@ and policy versions, the analysis and decision hashes are reproduced exactly.
 ## Why there are no claims of superiority
 
 Nothing here shows that adaptive routing retrieves better than any fixed pipeline. The lab shows
-agreement between rankings, which is not quality, and there is no judged query set yet. Measuring
-routing against fixed strategies (Recall@K, nDCG, MRR, latency, per query class) belongs to the
-Arena and experiment engine in Phase 8, where the routing identity hash above is the unit that is
-varied and compared.
+agreement between rankings, which is not quality. The Arena measures routing against fixed
+strategies on judged datasets (`hybrid-rrf-rerank → adaptive` is a preset ablation), with the
+routing identity hash as the unit that is varied. On the bundled development benchmark the
+comparison shows no detectable quality difference, because that set is saturated
+([research summary](../research/summary.md)); a dataset where methods differ is needed.
